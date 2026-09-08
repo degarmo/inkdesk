@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Shop {
+  id           String        @id @default(cuid())
+  name         String
+  timezone     String        @default("America/Los_Angeles")
+  hoursOpen    String        @default("11:00")
+  hoursClose   String        @default("20:00")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  users        User[]
+  artists      Artist[]
+  clients      Client[]
+  appointments Appointment[]
+  sessionNotes SessionNote[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  shopId       String
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model Artist {
+  id           String        @id @default(cuid())
+  shopId       String
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  specialty    String        @default("")
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+
+  @@index([shopId])
+}
+
+model Client {
+  id           String        @id @default(cuid())
+  shopId       String
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  phone        String        @default("")
+  email        String        @default("")
+  notes        String        @default("")
+  tags         String        @default("[]")
+  lastVisit    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+  sessionNotes SessionNote[]
+
+  @@index([shopId])
+}
+
+model Appointment {
+  id            String        @id @default(cuid())
+  shopId        String
+  shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  artistId      String
+  artist        Artist        @relation(fields: [artistId], references: [id], onDelete: Restrict)
+  startAt       DateTime
+  durationMin   Int           @default(60)
+  serviceType   String
+  status        String        @default("scheduled")
+  depositCents  Int           @default(0)
+  depositPaid   Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sessionNotes  SessionNote[]
+
+  @@index([shopId, startAt])
+  @@index([clientId])
+  @@index([artistId])
+}
+
+model SessionNote {
+  id            String       @id @default(cuid())
+  shopId        String
+  shop          Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  designNotes   String       @default("")
+  placement     String       @default("")
+  inkColors     String       @default("")
+  aftercareGiven Boolean     @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([shopId, clientId])
+  @@index([appointmentId])
+}
