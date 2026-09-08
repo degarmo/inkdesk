@@ -30,20 +30,38 @@ export function ClientForm({
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form action={formAction} className="grid gap-4" autoComplete="off">
       <FormMessage error={state?.error} success={state?.success} />
       <Field>
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" required defaultValue={defaultValues?.name} />
+        <Label htmlFor="client-name">Name</Label>
+        <Input
+          id="client-name"
+          name="name"
+          required
+          autoComplete="off"
+          defaultValue={defaultValues?.name}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" name="phone" defaultValue={defaultValues?.phone} placeholder="555-0100" />
+          <Label htmlFor="client-phone">Phone</Label>
+          <Input
+            id="client-phone"
+            name="phone"
+            autoComplete="off"
+            defaultValue={defaultValues?.phone}
+            placeholder="555-0100"
+          />
         </Field>
         <Field>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" defaultValue={defaultValues?.email} />
+          <Label htmlFor="client-email">Email</Label>
+          <Input
+            id="client-email"
+            name="email"
+            type="email"
+            autoComplete="off"
+            defaultValue={defaultValues?.email}
+          />
         </Field>
       </div>
       <Field>

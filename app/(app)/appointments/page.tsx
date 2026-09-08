@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireShop } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { addDayKey, dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
+import { addDayKey, dayBounds, formatShopDate, formatShopTime, shopTodayKey, zonedDateTime } from "@/lib/dates";
 import { formatMoney, serviceLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export default async function AppointmentsPage({
         </div>
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {days.map((key) => {
-            const labelDate = new Date(`${key}T12:00:00`);
+            const labelDate = zonedDateTime(key, "12:00", shop.timezone);
             const active = key === day;
             const isToday = key === todayKey;
             return (

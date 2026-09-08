@@ -1,14 +1,18 @@
 import { hash } from "bcryptjs";
-import { addDays, format } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
+import { addDays, format, parseISO } from "date-fns";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const TZ = "America/Los_Angeles";
 
+function shopDayKey(offset: number) {
+  const today = formatInTimeZone(new Date(), TZ, "yyyy-MM-dd");
+  return format(addDays(parseISO(today), offset), "yyyy-MM-dd");
+}
+
 function at(dayOffset: number, time: string) {
-  const day = format(addDays(new Date(), dayOffset), "yyyy-MM-dd");
-  return fromZonedTime(`${day}T${time}:00`, TZ);
+  return fromZonedTime(`${shopDayKey(dayOffset)}T${time}:00`, TZ);
 }
 
 async function main() {

@@ -17,7 +17,7 @@ export function LoginForm() {
       <FormMessage error={state?.error} />
       <Field>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input id="email" name="email" type="email" autoComplete="username" required />
       </Field>
       <Field>
         <Label htmlFor="password">Password</Label>
