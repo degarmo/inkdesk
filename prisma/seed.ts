@@ -1,3 +1,5 @@
+import { copyFile, mkdir, rm, stat } from "node:fs/promises";
+import path from "node:path";
 import { hash } from "bcryptjs";
 import { addDays, format, parseISO } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
@@ -5,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const TZ = "America/Los_Angeles";
+const STORAGE_ROOT = path.join(process.cwd(), "storage");
 
 function shopDayKey(offset: number) {
   const today = formatInTimeZone(new Date(), TZ, "yyyy-MM-dd");
@@ -16,6 +19,7 @@ function at(dayOffset: number, time: string) {
 }
 
 async function main() {
+  await prisma.clientImage.deleteMany();
   await prisma.idempotencyKey.deleteMany();
   await prisma.sessionNote.deleteMany();
   await prisma.appointment.deleteMany();
@@ -23,6 +27,7 @@ async function main() {
   await prisma.artist.deleteMany();
   await prisma.user.deleteMany();
   await prisma.shop.deleteMany();
+  await rm(path.join(STORAGE_ROOT, "shops"), { recursive: true, force: true });
 
   const shop = await prisma.shop.create({
     data: {
@@ -33,7 +38,7 @@ async function main() {
     },
   });
 
-  await prisma.user.create({
+  const mayaUser = await prisma.user.create({
     data: {
       email: "demo@blackbird.ink",
       name: "Maya Chen",
@@ -276,6 +281,71 @@ async function main() {
       inkColors: "Bold black, red, mustard",
       aftercareGiven: false,
     },
+  });
+
+  const priyaToday = createdAppointments[2];
+  const fixtures = path.join(process.cwd(), "prisma", "fixtures");
+
+  async function seedImage(opts: {
+    clientId: string;
+    appointmentId?: string;
+    kind: string;
+    caption: string;
+    prepForVisit: boolean;
+    file: string;
+    mimeType: string;
+    ext: string;
+    width: number;
+    height: number;
+  }) {
+    const id = crypto.randomUUID();
+    const key = path.join("shops", shop.id, "clients", opts.clientId, `${id}.${opts.ext}`);
+    const abs = path.join(STORAGE_ROOT, key);
+    await mkdir(path.dirname(abs), { recursive: true });
+    await copyFile(path.join(fixtures, opts.file), abs);
+    const info = await stat(abs);
+    await prisma.clientImage.create({
+      data: {
+        id,
+        shopId: shop.id,
+        clientId: opts.clientId,
+        appointmentId: opts.appointmentId ?? null,
+        kind: opts.kind,
+        prepForVisit: opts.prepForVisit,
+        caption: opts.caption,
+        storageKey: key,
+        mimeType: opts.mimeType,
+        byteSize: info.size,
+        width: opts.width,
+        height: opts.height,
+        uploadedById: mayaUser.id,
+      },
+    });
+  }
+
+  await seedImage({
+    clientId: priya.id,
+    appointmentId: priyaToday.id,
+    kind: "reference",
+    caption: "Shoulder botanical — client’s phone pic",
+    prepForVisit: true,
+    file: "priya-reference.jpg",
+    mimeType: "image/jpeg",
+    ext: "jpg",
+    width: 240,
+    height: 160,
+  });
+  await seedImage({
+    clientId: priya.id,
+    appointmentId: priyaToday.id,
+    kind: "design",
+    caption: "Stencil pass, olive linework",
+    prepForVisit: true,
+    file: "priya-design.png",
+    mimeType: "image/png",
+    ext: "png",
+    width: 240,
+    height: 160,
   });
 
   console.log("Seeded Blackbird Ink.");

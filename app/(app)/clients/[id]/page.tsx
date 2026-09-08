@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { FlashNotice } from "@/components/flash-notice";
 import { EmptyState } from "@/components/ui/field";
+import { ImageGallery } from "@/components/images/image-gallery";
+import { ImageUploadForm } from "@/components/images/image-upload-form";
 
 export const metadata: Metadata = { title: "Client" };
 
@@ -21,7 +23,7 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; note?: string }>;
+  searchParams: Promise<{ saved?: string; note?: string; image?: string }>;
 }) {
   const { shop } = await requireShop();
   const { id } = await params;
@@ -35,6 +37,10 @@ export default async function ClientDetailPage({
       },
       sessionNotes: {
         include: { appointment: true },
+        orderBy: { createdAt: "desc" },
+      },
+      images: {
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -60,6 +66,23 @@ export default async function ClientDetailPage({
           </>
         }
       />
+
+      <FlashNotice saved={flash.image} message="References updated." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>References</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <ImageUploadForm clientId={client.id} redirectTo={`/clients/${client.id}`} />
+          <ImageGallery
+            images={client.images}
+            redirectTo={`/clients/${client.id}`}
+            emptyTitle="No references yet"
+            emptyBody="Upload a JPEG, PNG, or WebP so the chair has the design on the screen when they sit down."
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Card>

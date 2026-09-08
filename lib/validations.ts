@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { APPOINTMENT_STATUSES, CLIENT_TAGS, SERVICE_TYPES } from "./constants";
+import { APPOINTMENT_STATUSES, CLIENT_TAGS, IMAGE_KINDS, SERVICE_TYPES } from "./constants";
 
 const tagValues = CLIENT_TAGS.map((tag) => tag.value) as [string, ...string[]];
 const serviceValues = SERVICE_TYPES.map((item) => item.value) as [string, ...string[]];
 const statusValues = APPOINTMENT_STATUSES.map((item) => item.value) as [string, ...string[]];
+const imageKindValues = IMAGE_KINDS.map((item) => item.value) as [string, ...string[]];
 
 export const signupSchema = z.object({
   shopName: z.string().trim().min(2, "Shop name is required"),
@@ -65,6 +66,12 @@ export const sessionNoteSchema = z
       data.designNotes.length > 0 || data.placement.length > 0 || data.inkColors.length > 0,
     { message: "Add design notes, placement, or ink before saving." },
   );
+
+export const imageMetaSchema = z.object({
+  kind: z.enum(imageKindValues),
+  caption: z.string().trim().max(200).optional().default(""),
+  prepForVisit: z.boolean(),
+});
 
 export const settingsSchema = z.object({
   name: z.string().trim().min(2, "Shop name is required"),

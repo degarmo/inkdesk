@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 import { StatusBadge } from "@/components/status-badge";
 import { DepositButton } from "@/components/deposit-button";
+import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -42,6 +43,12 @@ export default async function DashboardPage() {
       take: 6,
     }),
   ]);
+
+  const prep = await prepReadyIds(
+    shop.id,
+    todays.map((appointment) => appointment.id),
+    todays.map((appointment) => appointment.clientId),
+  );
 
   return (
     <div className="grid gap-8">
@@ -89,7 +96,10 @@ export default async function DashboardPage() {
                         {appointment.artist.name} · {serviceLabel(appointment.serviceType)} · {appointment.durationMin} min
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {appointmentHasPrep(appointment.id, appointment.clientId, prep) ? (
+                        <Badge tone="olive">Prep ready</Badge>
+                      ) : null}
                       <StatusBadge status={appointment.status} />
                       <Button asChild size="sm" variant="ghost">
                         <Link href={`/appointments/${appointment.id}`}>Open</Link>

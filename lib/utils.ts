@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { CLIENT_TAGS, SERVICE_TYPES, APPOINTMENT_STATUSES } from "./constants";
+import { CLIENT_TAGS, SERVICE_TYPES, APPOINTMENT_STATUSES, IMAGE_KINDS } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,6 +30,10 @@ export function serviceLabel(value: string) {
 
 export function statusLabel(value: string) {
   return APPOINTMENT_STATUSES.find((item) => item.value === value)?.label ?? value;
+}
+
+export function imageKindLabel(value: string) {
+  return IMAGE_KINDS.find((item) => item.value === value)?.label ?? value;
 }
 
 export function formatMoney(cents: number) {

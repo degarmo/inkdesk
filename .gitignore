@@ -40,6 +40,9 @@ yarn-error.log*
 *.db-journal
 prisma/dev.db
 
+# parlor image uploads (local disk)
+/storage/shops/
+
 # vercel
 .vercel
 

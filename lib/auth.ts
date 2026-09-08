@@ -20,6 +20,14 @@ export async function getLiveSession(): Promise<SessionUser | null> {
   redirect(EXPIRE_PATH);
 }
 
+/** Same live check as getLiveSession, but returns null instead of redirecting (API routes). */
+export async function getApiSession(): Promise<SessionUser | null> {
+  const session = await getSession();
+  if (!session) return null;
+  if (!(await sessionStillLive(session))) return null;
+  return session;
+}
+
 export async function requireSession(): Promise<SessionUser> {
   const session = await getLiveSession();
   if (!session) {

@@ -21,6 +21,7 @@ model Shop {
   appointments Appointment[]
   sessionNotes     SessionNote[]
   idempotencyKeys  IdempotencyKey[]
+  images           ClientImage[]
 }
 
 model User {
@@ -31,6 +32,7 @@ model User {
   shopId       String
   shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
+  uploadedImages ClientImage[]
 }
 
 model Artist {
@@ -61,6 +63,7 @@ model Client {
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
   sessionNotes SessionNote[]
+  images       ClientImage[]
 
   @@index([shopId])
 }
@@ -82,6 +85,7 @@ model Appointment {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   sessionNotes  SessionNote[]
+  images        ClientImage[]
 
   @@index([shopId, startAt])
   @@index([clientId])
@@ -105,6 +109,33 @@ model SessionNote {
 
   @@index([shopId, clientId])
   @@index([appointmentId])
+}
+
+model ClientImage {
+  id            String    @id @default(cuid())
+  shopId        String
+  shop          Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  kind          String
+  prepForVisit  Boolean   @default(false)
+  caption       String    @default("")
+  storageKey    String
+  mimeType      String
+  byteSize      Int
+  width         Int?
+  height        Int?
+  uploadedById  String
+  uploadedBy    User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([shopId, clientId])
+  @@index([shopId, appointmentId])
+  @@index([shopId, prepForVisit, deletedAt])
 }
 
 model IdempotencyKey {

@@ -36,9 +36,21 @@ export const TIMEZONES = [
   "UTC",
 ] as const;
 
+export const IMAGE_KINDS = [
+  { value: "reference", label: "Reference" },
+  { value: "design", label: "Design" },
+  { value: "healed", label: "Healed" },
+  { value: "other", label: "Other" },
+] as const;
+
 export const SESSION_COOKIE = "inkdesk_session";
 export const SESSION_DAYS = 7;
+
+export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+export const IMAGE_MAX_PER_CLIENT = 50;
+export const IMAGE_MAX_PER_APPOINTMENT = 20;
 
 export type ClientTag = (typeof CLIENT_TAGS)[number]["value"];
 export type ServiceType = (typeof SERVICE_TYPES)[number]["value"];
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number]["value"];
+export type ImageKind = (typeof IMAGE_KINDS)[number]["value"];

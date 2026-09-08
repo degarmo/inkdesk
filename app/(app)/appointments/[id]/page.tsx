@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlashNotice } from "@/components/flash-notice";
 import { Badge } from "@/components/ui/badge";
+import { ImageGallery } from "@/components/images/image-gallery";
+import { ImageUploadForm } from "@/components/images/image-upload-form";
+import { ImageLibraryPicker } from "@/components/images/image-library-picker";
 
 export const metadata: Metadata = { title: "Appointment" };
 
@@ -21,7 +24,7 @@ export default async function AppointmentDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; note?: string }>;
+  searchParams: Promise<{ saved?: string; note?: string; image?: string }>;
 }) {
   const { shop } = await requireShop();
   const { id } = await params;
@@ -32,6 +35,10 @@ export default async function AppointmentDetailPage({
       client: true,
       artist: true,
       sessionNotes: { orderBy: { createdAt: "desc" } },
+      images: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -39,13 +46,20 @@ export default async function AppointmentDetailPage({
     notFound();
   }
 
-  const [clients, artists] = await Promise.all([
+  const [clients, artists, clientLibrary] = await Promise.all([
     prisma.client.findMany({ where: { shopId: shop.id }, orderBy: { name: "asc" } }),
     prisma.artist.findMany({
       where: { shopId: shop.id },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
+    prisma.clientImage.findMany({
+      where: { shopId: shop.id, clientId: appointment.clientId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
+
+  const attachedKeys = new Set(appointment.images.map((image) => image.storageKey));
+  const attachable = clientLibrary.filter((image) => !attachedKeys.has(image.storageKey));
 
   return (
     <div className="grid gap-6">
@@ -140,6 +154,33 @@ export default async function AppointmentDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Prep art</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <FlashNotice saved={flash.image} message="Prep art updated." />
+          <ImageUploadForm
+            clientId={appointment.clientId}
+            appointmentId={appointment.id}
+            redirectTo={`/appointments/${appointment.id}`}
+          />
+          <ImageGallery
+            images={appointment.images}
+            redirectTo={`/appointments/${appointment.id}`}
+            emptyTitle="Nothing staged for this booking"
+            emptyBody="Upload a reference or attach one from the client card so the stencil is ready at the chair."
+          />
+          {attachable.length > 0 ? (
+            <ImageLibraryPicker
+              appointmentId={appointment.id}
+              redirectTo={`/appointments/${appointment.id}`}
+              images={attachable}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }
