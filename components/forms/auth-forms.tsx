@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TIMEZONES } from "@/lib/constants";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(logIn, null);
 
   return (
     <form action={action} className="grid gap-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <FormMessage error={state?.error} />
       <Field>
         <Label htmlFor="email">Email</Label>

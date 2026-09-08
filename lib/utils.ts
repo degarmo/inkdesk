@@ -66,3 +66,23 @@ export function durationLabel(minutes: number) {
   const hours = minutes / 60;
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
+
+/** Same-origin path for post-login return. Only parlor image URLs. */
+export function safeLoginNext(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const path = raw.trim();
+  if (!/^\/api\/images\/[A-Za-z0-9_-]+$/.test(path)) return null;
+  return path;
+}
+
+/** True for a top-level browser GET (address bar / link), not img/fetch/XHR. */
+export function isBrowserDocumentRequest(request: Request): boolean {
+  const dest = (request.headers.get("sec-fetch-dest") ?? "").toLowerCase();
+  const mode = (request.headers.get("sec-fetch-mode") ?? "").toLowerCase();
+  const accept = (request.headers.get("accept") ?? "").toLowerCase();
+
+  if (dest === "image" || dest === "empty") return false;
+  if (/\bimage\//.test(accept) && !/\btext\/html\b/.test(accept)) return false;
+  if (mode === "navigate" || dest === "document") return true;
+  return /\btext\/html\b/.test(accept);
+}

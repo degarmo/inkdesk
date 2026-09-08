@@ -3,12 +3,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLiveSession } from "@/lib/auth";
 import { LoginForm } from "@/components/forms/auth-forms";
+import { safeLoginNext } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const next = safeLoginNext((await searchParams).next);
   if (await getLiveSession()) {
-    redirect("/dashboard");
+    redirect(next ?? "/dashboard");
   }
 
   return (
@@ -23,7 +29,7 @@ export default async function LoginPage() {
           <span className="text-ink">parlor-demo</span>
         </p>
         <div className="mt-6">
-          <LoginForm />
+          <LoginForm next={next ?? undefined} />
         </div>
       </div>
     </div>

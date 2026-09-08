@@ -4,6 +4,7 @@ import { hash, compare } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session";
+import { safeLoginNext } from "@/lib/utils";
 import { loginSchema, signupSchema, type ActionState } from "@/lib/validations";
 
 export async function signUp(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -76,7 +77,7 @@ export async function logIn(_prev: ActionState, formData: FormData): Promise<Act
     shopId: user.shopId,
   });
 
-  redirect("/dashboard");
+  redirect(safeLoginNext(formData.get("next")) ?? "/dashboard");
 }
 
 export async function logOut() {
