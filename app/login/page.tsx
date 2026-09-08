@@ -28,6 +28,12 @@ export default async function LoginPage({
           Demo owner: <span className="text-ink">demo@blackbird.ink</span> /{" "}
           <span className="text-ink">parlor-demo</span>
         </p>
+        <p className="mt-1 text-sm text-muted">
+          Platform operators:{" "}
+          <Link href="/platform/login" className="text-ink underline underline-offset-4">
+            separate console
+          </Link>
+        </p>
         <div className="mt-6">
           <LoginForm next={next ?? undefined} />
         </div>

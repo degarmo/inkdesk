@@ -72,6 +72,13 @@ export function stripeConfigured(shop: ShopStripeFields) {
   return shopStripeCredentials(shop) !== null;
 }
 
+/** Shop-owned keys only — ignores the local-dev env fallback. */
+export function shopHasOwnStripeKeys(shop: ShopStripeFields) {
+  return Boolean(
+    shop.stripePublishableKey.trim() || shop.stripeSecretKey.trim() || shop.stripeWebhookSecret.trim(),
+  );
+}
+
 export function publicOrigin() {
   return process.env.APP_URL?.replace(/\/$/, "") || "http://127.0.0.1:43147";
 }

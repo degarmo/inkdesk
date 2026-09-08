@@ -29,18 +29,29 @@ model Shop {
 }
 
 model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("owner")
+  active       Boolean   @default(true)
+  lastSeenAt   DateTime?
+  shopId       String
+  shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  uploadedImages ClientImage[]
+
+  @@index([shopId])
+}
+
+/** Inkdesk operators. Not a parlor login — no shopId. */
+model PlatformUser {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   name         String
-  role         String   @default("owner")
   active       Boolean  @default(true)
-  shopId       String
-  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
-  uploadedImages ClientImage[]
-
-  @@index([shopId])
 }
 
 model Artist {

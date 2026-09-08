@@ -39,6 +39,9 @@ export default async function HomePage() {
             <Button asChild size="lg" variant="outline">
               <Link href="/login">Try the demo shop</Link>
             </Button>
+            <Button asChild size="lg" variant="ghost">
+              <Link href="/platform/login">Platform console</Link>
+            </Button>
           </div>
         </div>
         <div className="rounded-2xl border border-line bg-surface p-6">
@@ -49,6 +52,7 @@ export default async function HomePage() {
             <li>Day list for consults, sessions, and touch-ups</li>
             <li>Owner, admin, and staff logins — Admin is gated</li>
             <li>Per-parlor Stripe deposits (each shop brings its own keys)</li>
+            <li>Platform console for operators across every parlor</li>
             <li>Session notes: placement, ink, aftercare</li>
           </ul>
         </div>

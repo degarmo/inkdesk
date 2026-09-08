@@ -9,13 +9,13 @@ const prisma = new PrismaClient();
 const TZ = "America/Los_Angeles";
 const STORAGE_ROOT = path.join(process.cwd(), "storage");
 
-function shopDayKey(offset: number) {
-  const today = formatInTimeZone(new Date(), TZ, "yyyy-MM-dd");
-  return format(addDays(parseISO(today), offset), "yyyy-MM-dd");
+function atIn(tz: string, dayOffset: number, time: string) {
+  const today = formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
+  return fromZonedTime(`${format(addDays(parseISO(today), dayOffset), "yyyy-MM-dd")}T${time}:00`, tz);
 }
 
 function at(dayOffset: number, time: string) {
-  return fromZonedTime(`${shopDayKey(dayOffset)}T${time}:00`, TZ);
+  return atIn(TZ, dayOffset, time);
 }
 
 async function main() {
@@ -27,6 +27,7 @@ async function main() {
   await prisma.client.deleteMany();
   await prisma.artist.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.platformUser.deleteMany();
   await prisma.shop.deleteMany();
   await rm(path.join(STORAGE_ROOT, "shops"), { recursive: true, force: true });
 
@@ -47,6 +48,7 @@ async function main() {
       shopId: shop.id,
       role: "owner",
       active: true,
+      lastSeenAt: new Date(),
     },
   });
 
@@ -373,10 +375,225 @@ async function main() {
     height: 160,
   });
 
-  console.log("Seeded Blackbird Ink.");
-  console.log("  Owner:  demo@blackbird.ink / parlor-demo");
-  console.log("  Admin:  admin@blackbird.ink / parlor-admin");
-  console.log("  Staff:  artist@blackbird.ink / parlor-staff");
+  await prisma.payment.createMany({
+    data: [
+      {
+        shopId: shop.id,
+        appointmentId: createdAppointments[0].id,
+        clientId: jordan.id,
+        amountCents: 15000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: at(-2, "13:20"),
+      },
+      {
+        shopId: shop.id,
+        appointmentId: createdAppointments[1].id,
+        clientId: noah.id,
+        amountCents: 5000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: at(-1, "14:10"),
+      },
+      {
+        shopId: shop.id,
+        appointmentId: createdAppointments[3].id,
+        clientId: sam.id,
+        amountCents: 5000,
+        status: "pending",
+        type: "deposit",
+        createdAt: at(0, "10:00"),
+      },
+    ],
+  });
+
+  const harborTz = "America/New_York";
+  const harbor = await prisma.shop.create({
+    data: {
+      name: "Harbor Needle",
+      timezone: harborTz,
+      hoursOpen: "12:00",
+      hoursClose: "21:00",
+    },
+  });
+  await prisma.user.create({
+    data: {
+      email: "owner@harborneedle.ink",
+      name: "Lena Park",
+      passwordHash: await hash("parlor-harbor", 12),
+      shopId: harbor.id,
+      role: "owner",
+      active: true,
+      lastSeenAt: new Date(),
+    },
+  });
+  await prisma.user.create({
+    data: {
+      email: "staff@harborneedle.ink",
+      name: "Theo Brooks",
+      passwordHash: await hash("parlor-harbor-staff", 12),
+      shopId: harbor.id,
+      role: "staff",
+      active: true,
+    },
+  });
+  const lena = await prisma.artist.create({
+    data: { shopId: harbor.id, name: "Lena Park", specialty: "Blackwork & script", active: true },
+  });
+  const [mina, cole, june] = await Promise.all([
+    prisma.client.create({
+      data: {
+        shopId: harbor.id,
+        name: "Mina Solis",
+        phone: "2125550144",
+        email: "mina.solis@example.com",
+        notes: "Script along the collarbone.",
+        tags: JSON.stringify(["regular"]),
+      },
+    }),
+    prisma.client.create({
+      data: {
+        shopId: harbor.id,
+        name: "Cole Bennett",
+        phone: "9175550180",
+        notes: "Walk-in flash, first tattoo.",
+        tags: JSON.stringify(["walk-in", "first-timer"]),
+      },
+    }),
+    prisma.client.create({
+      data: {
+        shopId: harbor.id,
+        name: "June Hart",
+        email: "june.hart@example.com",
+        notes: "Cover-up consult next month.",
+        tags: JSON.stringify(["cover-up"]),
+      },
+    }),
+  ]);
+  const harborBookings = await Promise.all([
+    prisma.appointment.create({
+      data: {
+        shopId: harbor.id,
+        clientId: mina.id,
+        artistId: lena.id,
+        startAt: atIn(harborTz, -3, "13:00"),
+        durationMin: 120,
+        serviceType: "tattoo",
+        status: "completed",
+        depositCents: 10000,
+        depositPaid: true,
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        shopId: harbor.id,
+        clientId: cole.id,
+        artistId: lena.id,
+        startAt: atIn(harborTz, 0, "15:00"),
+        durationMin: 60,
+        serviceType: "tattoo",
+        status: "scheduled",
+        depositCents: 8000,
+        depositPaid: true,
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        shopId: harbor.id,
+        clientId: june.id,
+        artistId: lena.id,
+        startAt: atIn(harborTz, 2, "11:00"),
+        durationMin: 90,
+        serviceType: "consult",
+        status: "scheduled",
+        depositCents: 5000,
+        depositPaid: false,
+      },
+    }),
+  ]);
+  await prisma.payment.createMany({
+    data: [
+      {
+        shopId: harbor.id,
+        appointmentId: harborBookings[0].id,
+        clientId: mina.id,
+        amountCents: 10000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: atIn(harborTz, -3, "13:15"),
+      },
+      {
+        shopId: harbor.id,
+        appointmentId: harborBookings[1].id,
+        clientId: cole.id,
+        amountCents: 8000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: atIn(harborTz, -1, "09:00"),
+      },
+    ],
+  });
+
+  const quietTz = "America/Chicago";
+  const quiet = await prisma.shop.create({
+    data: {
+      name: "Ash & Ivy",
+      timezone: quietTz,
+      hoursOpen: "10:00",
+      hoursClose: "18:00",
+      createdAt: atIn(quietTz, -80, "10:00"),
+    },
+  });
+  await prisma.user.create({
+    data: {
+      email: "ivy@ashandivy.ink",
+      name: "Ivy Shaw",
+      passwordHash: await hash("parlor-quiet", 12),
+      shopId: quiet.id,
+      role: "owner",
+      active: true,
+    },
+  });
+  const ivyArtist = await prisma.artist.create({
+    data: { shopId: quiet.id, name: "Ivy Shaw", specialty: "Floral", active: true },
+  });
+  const reed = await prisma.client.create({
+    data: {
+      shopId: quiet.id,
+      name: "Reed Collins",
+      notes: "Last sat 45 days ago. Has not rebooked.",
+      tags: JSON.stringify(["regular"]),
+    },
+  });
+  await prisma.appointment.create({
+    data: {
+      shopId: quiet.id,
+      clientId: reed.id,
+      artistId: ivyArtist.id,
+      startAt: atIn(quietTz, -45, "14:00"),
+      durationMin: 90,
+      serviceType: "tattoo",
+      status: "completed",
+      depositCents: 6000,
+      depositPaid: true,
+    },
+  });
+
+  await prisma.platformUser.create({
+    data: {
+      email: "platform@inkdesk.app",
+      name: "Casey Drummond",
+      passwordHash: await hash("platform-admin", 12),
+      active: true,
+    },
+  });
+
+  console.log("Seeded shops + platform operator.");
+  console.log("  Blackbird owner:  demo@blackbird.ink / parlor-demo");
+  console.log("  Blackbird admin:  admin@blackbird.ink / parlor-admin");
+  console.log("  Blackbird staff:  artist@blackbird.ink / parlor-staff");
+  console.log("  Harbor owner:     owner@harborneedle.ink / parlor-harbor");
+  console.log("  Platform:         platform@inkdesk.app / platform-admin");
 }
 
 main()

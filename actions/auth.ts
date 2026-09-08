@@ -23,7 +23,10 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
   const existing = await prisma.user.findUnique({
     where: { email: parsed.data.email.toLowerCase() },
   });
-  if (existing) {
+  const platformExisting = await prisma.platformUser.findUnique({
+    where: { email: parsed.data.email.toLowerCase() },
+  });
+  if (existing || platformExisting) {
     return { error: "An account with that email already exists." };
   }
 
@@ -42,6 +45,7 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
       shopId: shop.id,
       role: "owner",
       active: true,
+      lastSeenAt: new Date(),
     },
   });
 
@@ -65,8 +69,14 @@ export async function logIn(_prev: ActionState, formData: FormData): Promise<Act
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
+  const email = parsed.data.email.toLowerCase();
+  const platformUser = await prisma.platformUser.findUnique({ where: { email } });
+  if (platformUser) {
+    return { error: "That email is a platform operator login. Use the platform console." };
+  }
+
   const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() },
+    where: { email },
   });
   if (!user || !(await compare(parsed.data.password, user.passwordHash))) {
     return { error: "Email or password is incorrect." };
@@ -74,6 +84,11 @@ export async function logIn(_prev: ActionState, formData: FormData): Promise<Act
   if (!user.active) {
     return { error: "This login is deactivated. Ask the shop owner." };
   }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastSeenAt: new Date() },
+  });
 
   await setSessionCookie({
     id: user.id,

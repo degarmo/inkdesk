@@ -15,12 +15,14 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Soft-delete hides them from galleries.
 - Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge.
 - Settings: shop name, timezone, business hours reminder.
-- **Admin:** overview, users (add login, set role, deactivate), parlor settings, appointment oversight, payment history.
+- **Admin (`/admin`):** parlor owners and admins — users, parlor settings, appointment oversight, payment history for **that shop**.
+- **Platform (`/platform`):** Inkdesk operators over **all shops**. Separate `PlatformUser` table and cookie. Shop logins cannot open it.
 - **Stripe (per parlor):** save `stripePublishableKey`, `stripeSecretKey`, and `stripeWebhookSecret` on the shop. Checkout and API calls use **that shop’s secret key**. Pay deposit / pay balance open Checkout. `checkout.session.completed` marks the payment succeeded and, for deposits, sets `appointment.depositPaid`.
 
 **Out of scope for v1**
 
 - Stripe Connect (platform charges / destination charges). Next step if parlors should onboard without pasting keys.
+- **Acting as a parlor from `/platform` (impersonation).** Operators get a read-only snapshot.
 - SMS reminders.
 - Public booking page.
 - Inventory, retail, or payroll.
@@ -28,11 +30,12 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 
 ## Roles
 
-| Role | Shop floor | Admin (`/admin`) |
-| --- | --- | --- |
-| Owner | Yes | Yes — users, parlor Stripe keys, appointments, payments |
-| Admin | Yes | Same Admin tools; cannot deactivate the last owner |
-| Staff | Yes | No. `/admin` redirects to the dashboard |
+| Role | Shop floor | Shop Admin (`/admin`) | Platform (`/platform`) |
+| --- | --- | --- | --- |
+| Owner | Yes | Yes — users, parlor Stripe keys, appointments, payments | No |
+| Admin | Yes | Same Admin tools; cannot deactivate the last owner | No |
+| Staff | Yes | No. `/admin` redirects to the dashboard | No |
+| Platform operator | No | No | Yes — metrics, every shop, bookings and payments pulse |
 
 ## Stripe: each parlor brings its own account
 
@@ -87,13 +90,31 @@ Open [http://localhost:43147](http://localhost:43147).
 
 Seed includes two artists, eight clients, a week of bookings, and Priya Nair’s sample reference JPEG + design PNG (prep-for-visit). Stripe keys are **not** seeded; connect them in Admin → Settings.
 
+**Second demo parlor — Harbor Needle** (America/New_York)
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Owner | `owner@harborneedle.ink` | `parlor-harbor` |
+
+**Quiet parlor — Ash & Ivy** exists so platform metrics can show a shop with no login or booking in 30 days (`ivy@ashandivy.ink` / `parlor-quiet`).
+
+**Platform operator** (all shops, not a parlor login)
+
+| | Email | Password |
+| --- | --- | --- |
+| Operator | `platform@inkdesk.app` | `platform-admin` |
+
+Open [http://localhost:43147/platform/login](http://localhost:43147/platform/login). Routes: `/platform` overview, `/platform/shops`, `/platform/shops/[id]`, `/platform/bookings`, `/platform/payments`. Shop JWTs cannot open these pages.
+
+A shop is counted **active** if a parlor user signed in in the last 30 days (`User.lastSeenAt`) or it has a booking whose start already fell in that window (upcoming-only books do not count). Platform sessions use a separate cookie (`inkdesk_platform`).
+
 Scripts:
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Next.js on port 43147 |
 | `npm run db:migrate` | Create / apply Prisma migrations |
-| `npm run db:seed` | Reset demo data (Blackbird Ink). Existing demo JWTs are expired on next request. Writes sample images under `storage/`. |
+| `npm run db:seed` | Reset demo data (three shops + platform operator). Existing demo JWTs are expired on next request. Writes sample images under `storage/`. |
 | `npm run build` / `npm start` | Production build |
 
 ## Environment
@@ -140,7 +161,7 @@ No other application code is SQLite-specific. Tags are stored as a JSON string s
 ## Project layout
 
 ```
-app/            App Router pages, Admin, GET /api/images/[id], Stripe webhooks
+app/            App Router pages, shop Admin, platform console, images API, Stripe webhooks
 actions/        Server actions
 components/     Shell, forms, galleries, UI primitives
 lib/            Prisma, session, dates, validation, Stripe per shop, image storage
@@ -151,7 +172,8 @@ storage/        Local image disk (shops/ is gitignored)
 ## Suggested next milestones
 
 1. **Stripe Connect** — onboard parlors without pasting secret keys; destination charges instead of stored `sk_live` material.
-2. **Online booking** — public page for consults and sessions against open artist hours, writing into the same appointment table.
-3. **Consent forms** — age, aftercare, and release signed on a tablet before the machine starts.
-4. **SMS** — next-day reminders and “your deposit is still open” texts.
-5. **Object storage** — move parlor images off the laptop disk to S3 (or similar) when more than one machine needs the files.
+2. **Platform impersonation** — open a parlor as that shop’s owner from `/platform` (not in this release).
+3. **Online booking** — public page for consults and sessions against open artist hours, writing into the same appointment table.
+4. **Consent forms** — age, aftercare, and release signed on a tablet before the machine starts.
+5. **SMS** — next-day reminders and “your deposit is still open” texts.
+6. **Object storage** — move parlor images off the laptop disk to S3 (or similar) when more than one machine needs the files.
