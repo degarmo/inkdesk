@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { CalendarDays, LayoutDashboard, Menu, Settings, Users, X, PenTool } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Menu, Settings, Shield, Users, X, PenTool } from "lucide-react";
 import { logOut } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, isAdminRole } from "@/lib/utils";
 
-const links = [
+const floorLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/clients", label: "Clients", icon: Users },
@@ -19,19 +19,29 @@ const links = [
 export function AppShell({
   shopName,
   userName,
+  role,
   children,
 }: {
   shopName: string;
   userName: string;
+  role: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const showAdmin = isAdminRole(role);
+
+  const links = showAdmin
+    ? [...floorLinks, { href: "/admin", label: "Admin", icon: Shield }]
+    : floorLinks;
 
   const nav = (
     <nav className="flex flex-col gap-1">
       {links.map((link) => {
-        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+        const active =
+          link.href === "/admin"
+            ? pathname === "/admin" || pathname.startsWith("/admin/")
+            : pathname === link.href || pathname.startsWith(`${link.href}/`);
         const Icon = link.icon;
         return (
           <Link
@@ -61,6 +71,7 @@ export function AppShell({
         <div className="mt-8 flex-1">{nav}</div>
         <div className="border-t border-line pt-4">
           <p className="px-2 text-sm text-ink">{userName}</p>
+          <p className="px-2 text-xs capitalize text-muted">{role}</p>
           <form action={logOut} className="mt-2">
             <Button type="submit" variant="ghost" className="w-full justify-start px-2 text-muted">
               Sign out

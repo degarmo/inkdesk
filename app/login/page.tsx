@@ -25,7 +25,7 @@ export default async function LoginPage({
         </Link>
         <h1 className="mt-4 font-serif text-3xl text-ink">Sign in</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
-          Demo shop: <span className="text-ink">demo@blackbird.ink</span> /{" "}
+          Demo owner: <span className="text-ink">demo@blackbird.ink</span> /{" "}
           <span className="text-ink">parlor-demo</span>
         </p>
         <div className="mt-6">

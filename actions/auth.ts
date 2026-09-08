@@ -40,6 +40,8 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
       name: parsed.data.name,
       passwordHash: await hash(parsed.data.password, 12),
       shopId: shop.id,
+      role: "owner",
+      active: true,
     },
   });
 
@@ -68,6 +70,9 @@ export async function logIn(_prev: ActionState, formData: FormData): Promise<Act
   });
   if (!user || !(await compare(parsed.data.password, user.passwordHash))) {
     return { error: "Email or password is incorrect." };
+  }
+  if (!user.active) {
+    return { error: "This login is deactivated. Ask the shop owner." };
   }
 
   await setSessionCookie({

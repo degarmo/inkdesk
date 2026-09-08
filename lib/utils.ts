@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { CLIENT_TAGS, SERVICE_TYPES, APPOINTMENT_STATUSES, IMAGE_KINDS } from "./constants";
+import { CLIENT_TAGS, SERVICE_TYPES, APPOINTMENT_STATUSES, IMAGE_KINDS, USER_ROLES, PAYMENT_STATUSES, PAYMENT_TYPES } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -34,6 +34,22 @@ export function statusLabel(value: string) {
 
 export function imageKindLabel(value: string) {
   return IMAGE_KINDS.find((item) => item.value === value)?.label ?? value;
+}
+
+export function isAdminRole(role: string) {
+  return role === "owner" || role === "admin";
+}
+
+export function roleLabel(value: string) {
+  return USER_ROLES.find((item) => item.value === value)?.label ?? value;
+}
+
+export function paymentStatusLabel(value: string) {
+  return PAYMENT_STATUSES.find((item) => item.value === value)?.label ?? value;
+}
+
+export function paymentTypeLabel(value: string) {
+  return PAYMENT_TYPES.find((item) => item.value === value)?.label ?? value;
 }
 
 export function formatMoney(cents: number) {

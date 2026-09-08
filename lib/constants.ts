@@ -43,8 +43,29 @@ export const IMAGE_KINDS = [
   { value: "other", label: "Other" },
 ] as const;
 
+export const USER_ROLES = [
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  { value: "staff", label: "Staff" },
+] as const;
+
+export const PAYMENT_TYPES = [
+  { value: "deposit", label: "Deposit" },
+  { value: "balance", label: "Balance" },
+  { value: "other", label: "Other" },
+] as const;
+
+export const PAYMENT_STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "succeeded", label: "Succeeded" },
+  { value: "failed", label: "Failed" },
+  { value: "canceled", label: "Canceled" },
+] as const;
+
 export const SESSION_COOKIE = "inkdesk_session";
 export const SESSION_DAYS = 7;
+
+export const STRIPE_NOT_CONFIGURED = "Connect Stripe in Admin → Settings";
 
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 export const IMAGE_MAX_PER_CLIENT = 50;
@@ -54,3 +75,6 @@ export type ClientTag = (typeof CLIENT_TAGS)[number]["value"];
 export type ServiceType = (typeof SERVICE_TYPES)[number]["value"];
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number]["value"];
 export type ImageKind = (typeof IMAGE_KINDS)[number]["value"];
+export type UserRole = (typeof USER_ROLES)[number]["value"];
+export type PaymentType = (typeof PAYMENT_TYPES)[number]["value"];
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]["value"];

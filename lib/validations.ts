@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { APPOINTMENT_STATUSES, CLIENT_TAGS, IMAGE_KINDS, SERVICE_TYPES } from "./constants";
+import { APPOINTMENT_STATUSES, CLIENT_TAGS, IMAGE_KINDS, SERVICE_TYPES, USER_ROLES } from "./constants";
 
 const tagValues = CLIENT_TAGS.map((tag) => tag.value) as [string, ...string[]];
 const serviceValues = SERVICE_TYPES.map((item) => item.value) as [string, ...string[]];
@@ -78,6 +78,33 @@ export const settingsSchema = z.object({
   timezone: z.string().min(1),
   hoursOpen: z.string().min(1),
   hoursClose: z.string().min(1),
+});
+
+const roleValues = USER_ROLES.map((item) => item.value) as [string, ...string[]];
+
+export const shopUserSchema = z.object({
+  name: z.string().trim().min(2, "Name is required"),
+  email: z.string().trim().email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  role: z.enum(roleValues),
+});
+
+export const shopUserRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(roleValues),
+});
+
+export const stripeSettingsSchema = z.object({
+  stripePublishableKey: z.string().trim().max(500).optional().default(""),
+  stripeSecretKey: z.string().trim().max(500).optional().default(""),
+  stripeWebhookSecret: z.string().trim().max(500).optional().default(""),
+  clearStripe: z.boolean().optional().default(false),
+});
+
+export const checkoutSchema = z.object({
+  appointmentId: z.string().min(1),
+  type: z.enum(["deposit", "balance", "other"]),
+  amountCents: z.coerce.number().int().min(50, "Minimum charge is $0.50").max(1_000_000),
 });
 
 export type ActionState = {

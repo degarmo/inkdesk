@@ -58,8 +58,9 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              Inkdesk records whether a deposit is paid. Card capture and receipts will hook in here
-              later — no processor is connected yet.
+              Each parlor connects its own Stripe account under Admin → Settings. Checkout uses that shop&apos;s
+              secret key — not a shared platform account. Until keys are saved, pay buttons read{" "}
+              <span className="text-ink">Connect Stripe in Admin → Settings</span>.
             </p>
           </CardContent>
         </Card>

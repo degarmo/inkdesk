@@ -19,6 +19,7 @@ function at(dayOffset: number, time: string) {
 }
 
 async function main() {
+  await prisma.payment.deleteMany();
   await prisma.clientImage.deleteMany();
   await prisma.idempotencyKey.deleteMany();
   await prisma.sessionNote.deleteMany();
@@ -44,6 +45,30 @@ async function main() {
       name: "Maya Chen",
       passwordHash: await hash("parlor-demo", 12),
       shopId: shop.id,
+      role: "owner",
+      active: true,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: "admin@blackbird.ink",
+      name: "Kim Alvarez",
+      passwordHash: await hash("parlor-admin", 12),
+      shopId: shop.id,
+      role: "admin",
+      active: true,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      email: "artist@blackbird.ink",
+      name: "Diego Reyes",
+      passwordHash: await hash("parlor-staff", 12),
+      shopId: shop.id,
+      role: "staff",
+      active: true,
     },
   });
 
@@ -349,7 +374,9 @@ async function main() {
   });
 
   console.log("Seeded Blackbird Ink.");
-  console.log("  Sign in: demo@blackbird.ink / parlor-demo");
+  console.log("  Owner:  demo@blackbird.ink / parlor-demo");
+  console.log("  Admin:  admin@blackbird.ink / parlor-admin");
+  console.log("  Staff:  artist@blackbird.ink / parlor-staff");
 }
 
 main()

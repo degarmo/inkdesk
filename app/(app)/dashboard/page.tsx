@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireShop } from "@/lib/auth";
+import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
 import { formatMoney, formatPhone, parseTags, serviceLabel, tagLabel } from "@/lib/utils";
@@ -10,13 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 import { StatusBadge } from "@/components/status-badge";
-import { DepositButton } from "@/components/deposit-button";
+import { AppointmentPayActions } from "@/components/appointment-pay-actions";
 import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
+import { stripeConfigured } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  const { shop } = await requireShop();
+  const { shop, session } = await requireShop();
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
 
@@ -148,7 +149,14 @@ export default async function DashboardPage() {
                         {formatShopDate(appointment.startAt, shop.timezone)} · {appointment.artist.name}
                       </p>
                     </div>
-                    <DepositButton appointmentId={appointment.id} />
+                    <AppointmentPayActions
+                      appointmentId={appointment.id}
+                      depositCents={appointment.depositCents}
+                      depositPaid={appointment.depositPaid}
+                      stripeReady={stripeConfigured(shop)}
+                      isAdmin={isAdminRole(session.role)}
+                      compact
+                    />
                   </li>
                 ))}
               </ul>

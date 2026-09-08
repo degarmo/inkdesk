@@ -11,6 +11,7 @@ import { useOnceSubmit } from "@/lib/use-once-submit";
 
 export function SettingsForm({
   defaultValues,
+  redirectTo,
 }: {
   defaultValues: {
     name: string;
@@ -18,6 +19,7 @@ export function SettingsForm({
     hoursOpen: string;
     hoursClose: string;
   };
+  redirectTo?: string;
 }) {
   const [state, action, pending] = useActionState(updateSettings, null);
   const { onSubmit, unlock } = useOnceSubmit();
@@ -28,6 +30,7 @@ export function SettingsForm({
 
   return (
     <form action={action} className="grid gap-4" onSubmit={onSubmit}>
+      {redirectTo ? <input type="hidden" name="redirectTo" value={redirectTo} /> : null}
       <FormMessage error={state?.error} success={state?.success} />
       <Field>
         <Label htmlFor="name">Shop name</Label>

@@ -47,7 +47,8 @@ export default async function HomePage() {
             <li>Client cards with tags, notes, and last visit</li>
             <li>Artist roster — active and inactive</li>
             <li>Day list for consults, sessions, and touch-ups</li>
-            <li>Deposit tracking (paid / unpaid, no card processing)</li>
+            <li>Owner, admin, and staff logins — Admin is gated</li>
+            <li>Per-parlor Stripe deposits (each shop brings its own keys)</li>
             <li>Session notes: placement, ink, aftercare</li>
           </ul>
         </div>

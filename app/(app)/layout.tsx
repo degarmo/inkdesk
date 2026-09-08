@@ -6,7 +6,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const { session, shop } = await requireShop();
 
   return (
-    <AppShell shopName={shop.name} userName={session.name}>
+    <AppShell shopName={shop.name} userName={session.name} role={session.role}>
       {children}
     </AppShell>
   );

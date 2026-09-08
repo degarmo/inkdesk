@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireShop } from "@/lib/auth";
+import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayKeyInZone, formatShopDateTime, timeValueInZone } from "@/lib/dates";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, paymentStatusLabel, paymentTypeLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { AppointmentForm } from "@/components/forms/appointment-form";
 import { NoteForm } from "@/components/forms/note-form";
-import { DepositButton } from "@/components/deposit-button";
+import { AppointmentPayActions } from "@/components/appointment-pay-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlashNotice } from "@/components/flash-notice";
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ImageGallery } from "@/components/images/image-gallery";
 import { ImageUploadForm } from "@/components/images/image-upload-form";
 import { ImageLibraryPicker } from "@/components/images/image-library-picker";
+import { stripeConfigured } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Appointment" };
 
@@ -24,9 +25,9 @@ export default async function AppointmentDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; note?: string; image?: string }>;
+  searchParams: Promise<{ saved?: string; note?: string; image?: string; paid?: string; canceled?: string }>;
 }) {
-  const { shop } = await requireShop();
+  const { shop, session } = await requireShop();
   const { id } = await params;
   const flash = await searchParams;
   const appointment = await prisma.appointment.findFirst({
@@ -35,6 +36,7 @@ export default async function AppointmentDetailPage({
       client: true,
       artist: true,
       sessionNotes: { orderBy: { createdAt: "desc" } },
+      payments: { orderBy: { createdAt: "desc" } },
       images: {
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
@@ -88,10 +90,43 @@ export default async function AppointmentDetailPage({
         ) : (
           <Badge>No deposit</Badge>
         )}
-        {!appointment.depositPaid && appointment.depositCents > 0 ? (
-          <DepositButton appointmentId={appointment.id} />
-        ) : null}
       </div>
+
+      {flash.paid === "1" ? <FlashNotice saved="1" message="Checkout finished. Stripe will confirm the payment on this parlor’s webhook." /> : null}
+      {flash.canceled === "1" ? (
+        <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-muted">
+          Checkout was canceled. No charge was made.
+        </p>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Collect payment</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <AppointmentPayActions
+            appointmentId={appointment.id}
+            depositCents={appointment.depositCents}
+            depositPaid={appointment.depositPaid}
+            stripeReady={stripeConfigured(shop)}
+            isAdmin={isAdminRole(session.role)}
+          />
+          {appointment.payments.length === 0 ? (
+            <p className="text-sm text-muted">No card checkouts on this booking yet. Cash can still be marked paid.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {appointment.payments.map((payment) => (
+                <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span className="text-ink">
+                    {formatMoney(payment.amountCents)} · {paymentTypeLabel(payment.type)}
+                  </span>
+                  <span className="text-muted">{paymentStatusLabel(payment.status)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

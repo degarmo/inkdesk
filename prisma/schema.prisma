@@ -8,13 +8,16 @@ datasource db {
 }
 
 model Shop {
-  id           String        @id @default(cuid())
-  name         String
-  timezone     String        @default("America/Los_Angeles")
-  hoursOpen    String        @default("11:00")
-  hoursClose   String        @default("20:00")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  name                 String
+  timezone             String        @default("America/Los_Angeles")
+  hoursOpen            String        @default("11:00")
+  hoursClose           String        @default("20:00")
+  stripePublishableKey String        @default("")
+  stripeSecretKey      String        @default("")
+  stripeWebhookSecret  String        @default("")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
   users        User[]
   artists      Artist[]
   clients      Client[]
@@ -22,6 +25,7 @@ model Shop {
   sessionNotes     SessionNote[]
   idempotencyKeys  IdempotencyKey[]
   images           ClientImage[]
+  payments         Payment[]
 }
 
 model User {
@@ -29,10 +33,14 @@ model User {
   email        String   @unique
   passwordHash String
   name         String
+  role         String   @default("owner")
+  active       Boolean  @default(true)
   shopId       String
   shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   uploadedImages ClientImage[]
+
+  @@index([shopId])
 }
 
 model Artist {
@@ -64,6 +72,7 @@ model Client {
   appointments Appointment[]
   sessionNotes SessionNote[]
   images       ClientImage[]
+  payments     Payment[]
 
   @@index([shopId])
 }
@@ -86,6 +95,7 @@ model Appointment {
   updatedAt     DateTime      @updatedAt
   sessionNotes  SessionNote[]
   images        ClientImage[]
+  payments      Payment[]
 
   @@index([shopId, startAt])
   @@index([clientId])
@@ -136,6 +146,28 @@ model ClientImage {
   @@index([shopId, clientId])
   @@index([shopId, appointmentId])
   @@index([shopId, prepForVisit, deletedAt])
+}
+
+model Payment {
+  id                    String       @id @default(cuid())
+  shopId                String
+  shop                  Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  appointmentId         String?
+  appointment           Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  clientId              String?
+  client                Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  amountCents           Int
+  currency              String       @default("usd")
+  status                String       @default("pending")
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+  type                  String
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([shopId, createdAt])
+  @@index([appointmentId])
+  @@index([stripeSessionId])
 }
 
 model IdempotencyKey {
