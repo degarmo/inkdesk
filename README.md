@@ -27,6 +27,9 @@ Shop-floor CRM for tattoo parlors. One shop per account. Owners and artists can 
 - Times are stored in UTC and shown in the shop timezone.
 - SQLite is enough for a single-shop trial on a laptop. Switch to Postgres before sharing a server.
 - Auth is a signed, httpOnly session cookie (JWT via `jose` + `bcryptjs` passwords). No third-party auth provider.
+- Re-seeding recreates the shop, which invalidates existing session cookies. Inkdesk expires those cookies and sends you to `/login` instead of looping.
+- Session notes require at least one of: design notes, placement, or ink/colors.
+- Creates (client, appointment, session note) send an idempotency key so a double-submit does not insert two rows.
 
 ## Run locally
 
@@ -56,7 +59,7 @@ Scripts:
 | --- | --- |
 | `npm run dev` | Next.js on port 43147 |
 | `npm run db:migrate` | Create / apply Prisma migrations |
-| `npm run db:seed` | Reset demo data (Blackbird Ink) |
+| `npm run db:seed` | Reset demo data (Blackbird Ink). Existing demo JWTs are expired on next request. |
 | `npm run build` / `npm start` | Production build |
 
 ## Environment

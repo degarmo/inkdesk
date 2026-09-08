@@ -21,7 +21,7 @@ export default function NewClientPage() {
       />
       <Card className="max-w-2xl">
         <CardContent className="pt-5">
-          <ClientForm />
+          <ClientForm idempotencyKey={crypto.randomUUID()} />
         </CardContent>
       </Card>
     </div>

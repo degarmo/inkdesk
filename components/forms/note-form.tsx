@@ -1,34 +1,59 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createSessionNote } from "@/actions/notes";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useOnceSubmit } from "@/lib/use-once-submit";
 
 export function NoteForm({
   clientId,
   appointmentId,
   appointments,
+  idempotencyKey,
 }: {
   clientId: string;
   appointmentId?: string;
   appointments?: { id: string; label: string }[];
+  idempotencyKey: string;
 }) {
+  const formKey = `session-note-${clientId}-${appointmentId ?? "client"}-${idempotencyKey}`;
+  const fieldPrefix = `session-note-${clientId}-${appointmentId ?? "none"}`;
   const [state, action, pending] = useActionState(createSessionNote, null);
+  const { onSubmit, unlock } = useOnceSubmit();
+
+  useEffect(() => {
+    if (state?.error) unlock();
+  }, [state, unlock]);
 
   return (
-    <form action={action} className="grid gap-4">
+    <form
+      key={formKey}
+      action={action}
+      className="grid gap-4"
+      autoComplete="off"
+      onSubmit={onSubmit}
+    >
       <FormMessage error={state?.error} success={state?.success} />
+      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <input type="hidden" name="clientId" value={clientId} />
+      <input
+        type="text"
+        tabIndex={-1}
+        aria-hidden="true"
+        autoComplete="username"
+        className="sr-only"
+        defaultValue=""
+      />
       {appointmentId ? (
         <input type="hidden" name="appointmentId" value={appointmentId} />
       ) : appointments && appointments.length > 0 ? (
         <Field>
-          <Label htmlFor="appointmentId">Linked appointment</Label>
-          <NativeSelect id="appointmentId" name="appointmentId" defaultValue="">
+          <Label htmlFor={`${fieldPrefix}-appointment`}>Linked appointment</Label>
+          <NativeSelect id={`${fieldPrefix}-appointment`} name="appointmentId" defaultValue="">
             <option value="">Client note (not tied to a booking)</option>
             {appointments.map((item) => (
               <option key={item.id} value={item.id}>
@@ -39,21 +64,35 @@ export function NoteForm({
         </Field>
       ) : null}
       <Field>
-        <Label htmlFor="designNotes">Design notes</Label>
+        <Label htmlFor={`${fieldPrefix}-design`}>Design notes</Label>
         <Textarea
-          id="designNotes"
-          name="designNotes"
+          id={`${fieldPrefix}-design`}
+          name="sessionDesignNotes"
+          autoComplete="off"
+          defaultValue=""
           placeholder="Motif, references, size, stencil notes…"
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
-          <Label htmlFor="placement">Placement</Label>
-          <Input id="placement" name="placement" placeholder="Left inner forearm" />
+          <Label htmlFor={`${fieldPrefix}-placement`}>Placement</Label>
+          <Input
+            id={`${fieldPrefix}-placement`}
+            name="sessionPlacement"
+            autoComplete="off"
+            defaultValue=""
+            placeholder="Where on the body"
+          />
         </Field>
         <Field>
-          <Label htmlFor="inkColors">Ink / colors</Label>
-          <Input id="inkColors" name="inkColors" placeholder="Black, rust, muted green" />
+          <Label htmlFor={`${fieldPrefix}-ink`}>Ink / colors</Label>
+          <Input
+            id={`${fieldPrefix}-ink`}
+            name="sessionInk"
+            autoComplete="off"
+            defaultValue=""
+            placeholder="Pigments used"
+          />
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">
@@ -61,7 +100,7 @@ export function NoteForm({
         Aftercare given
       </label>
       <div>
-        <Button type="submit" disabled={pending} variant="outline">
+        <Button type="submit" disabled={pending} aria-busy={pending} variant="outline">
           {pending ? "Saving…" : "Add session note"}
         </Button>
       </div>

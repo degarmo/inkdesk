@@ -19,7 +19,8 @@ model Shop {
   artists      Artist[]
   clients      Client[]
   appointments Appointment[]
-  sessionNotes SessionNote[]
+  sessionNotes     SessionNote[]
+  idempotencyKeys  IdempotencyKey[]
 }
 
 model User {
@@ -104,4 +105,15 @@ model SessionNote {
 
   @@index([shopId, clientId])
   @@index([appointmentId])
+}
+
+model IdempotencyKey {
+  key       String   @id
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  kind      String
+  resultId  String
+  createdAt DateTime @default(now())
+
+  @@index([shopId, kind])
 }

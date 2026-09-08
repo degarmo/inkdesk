@@ -2,8 +2,26 @@ import { redirect } from "next/navigation";
 import { getSession, type SessionUser } from "./session";
 import { prisma } from "./prisma";
 
-export async function requireSession(): Promise<SessionUser> {
+const EXPIRE_PATH = "/session/expire";
+
+async function sessionStillLive(session: SessionUser) {
+  const [user, shop] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.id }, select: { id: true } }),
+    prisma.shop.findUnique({ where: { id: session.shopId }, select: { id: true } }),
+  ]);
+  return Boolean(user && shop);
+}
+
+/** JWT present and the user/shop still exist. Otherwise expire the cookie via redirect. */
+export async function getLiveSession(): Promise<SessionUser | null> {
   const session = await getSession();
+  if (!session) return null;
+  if (await sessionStillLive(session)) return session;
+  redirect(EXPIRE_PATH);
+}
+
+export async function requireSession(): Promise<SessionUser> {
+  const session = await getLiveSession();
   if (!session) {
     redirect("/login");
   }
@@ -14,7 +32,7 @@ export async function requireShop() {
   const session = await requireSession();
   const shop = await prisma.shop.findUnique({ where: { id: session.shopId } });
   if (!shop) {
-    redirect("/login");
+    redirect(EXPIRE_PATH);
   }
   return { session, shop };
 }

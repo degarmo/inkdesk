@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { settingsSchema, type ActionState } from "@/lib/validations";
@@ -26,5 +27,5 @@ export async function updateSettings(_prev: ActionState, formData: FormData): Pr
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath("/appointments");
-  return { success: "Shop settings saved." };
+  redirect("/settings?saved=1");
 }

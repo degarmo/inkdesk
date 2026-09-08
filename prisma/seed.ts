@@ -16,6 +16,7 @@ function at(dayOffset: number, time: string) {
 }
 
 async function main() {
+  await prisma.idempotencyKey.deleteMany();
   await prisma.sessionNote.deleteMany();
   await prisma.appointment.deleteMany();
   await prisma.client.deleteMany();

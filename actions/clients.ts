@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
+import { replayOrCreate } from "@/lib/idempotency";
 import { prisma } from "@/lib/prisma";
 import { stringifyTags } from "@/lib/utils";
 import { clientSchema, type ActionState } from "@/lib/validations";
@@ -25,20 +26,28 @@ export async function createClient(_prev: ActionState, formData: FormData): Prom
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
-  const client = await prisma.client.create({
-    data: {
-      shopId: session.shopId,
-      name: parsed.data.name,
-      phone: parsed.data.phone,
-      email: parsed.data.email,
-      notes: parsed.data.notes,
-      tags: stringifyTags(parsed.data.tags),
+  const { id } = await replayOrCreate(
+    session.shopId,
+    "client",
+    String(formData.get("idempotencyKey") ?? ""),
+    async (tx) => {
+      const client = await tx.client.create({
+        data: {
+          shopId: session.shopId,
+          name: parsed.data.name,
+          phone: parsed.data.phone,
+          email: parsed.data.email,
+          notes: parsed.data.notes,
+          tags: stringifyTags(parsed.data.tags),
+        },
+      });
+      return client.id;
     },
-  });
+  );
 
   revalidatePath("/clients");
   revalidatePath("/dashboard");
-  redirect(`/clients/${client.id}`);
+  redirect(`/clients/${id}`);
 }
 
 export async function updateClient(clientId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -76,5 +85,5 @@ export async function updateClient(clientId: string, _prev: ActionState, formDat
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
-  return { success: "Client updated." };
+  redirect(`/clients/${clientId}?saved=1`);
 }

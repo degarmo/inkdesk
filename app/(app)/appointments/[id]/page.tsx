@@ -11,17 +11,21 @@ import { NoteForm } from "@/components/forms/note-form";
 import { DepositButton } from "@/components/deposit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlashNotice } from "@/components/flash-notice";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = { title: "Appointment" };
 
 export default async function AppointmentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string; note?: string }>;
 }) {
   const { shop } = await requireShop();
   const { id } = await params;
+  const flash = await searchParams;
   const appointment = await prisma.appointment.findFirst({
     where: { id, shopId: shop.id },
     include: {
@@ -80,7 +84,8 @@ export default async function AppointmentDetailPage({
           <CardHeader>
             <CardTitle>Booking</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-3">
+            <FlashNotice saved={flash.saved} message="Appointment saved." />
             <AppointmentForm
               appointmentId={appointment.id}
               clients={clients.map((client) => ({ id: client.id, name: client.name }))}
@@ -109,7 +114,12 @@ export default async function AppointmentDetailPage({
             <CardTitle>Session notes</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-6">
-            <NoteForm clientId={appointment.clientId} appointmentId={appointment.id} />
+            <FlashNotice saved={flash.note} message="Session note saved." />
+            <NoteForm
+              clientId={appointment.clientId}
+              appointmentId={appointment.id}
+              idempotencyKey={crypto.randomUUID()}
+            />
             {appointment.sessionNotes.length === 0 ? (
               <p className="text-sm text-muted">No notes on this booking yet.</p>
             ) : (

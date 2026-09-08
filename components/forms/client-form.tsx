@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createClient, updateClient } from "@/actions/clients";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage } from "@/components/ui/field";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CLIENT_TAGS } from "@/lib/constants";
+import { useOnceSubmit } from "@/lib/use-once-submit";
 
 type ClientValues = {
   name: string;
@@ -20,18 +21,26 @@ type ClientValues = {
 export function ClientForm({
   clientId,
   defaultValues,
+  idempotencyKey,
 }: {
   clientId?: string;
   defaultValues?: ClientValues;
+  idempotencyKey?: string;
 }) {
   const action = clientId
     ? updateClient.bind(null, clientId)
     : createClient;
   const [state, formAction, pending] = useActionState(action, null);
+  const { onSubmit, unlock } = useOnceSubmit();
+
+  useEffect(() => {
+    if (state?.error) unlock();
+  }, [state, unlock]);
 
   return (
-    <form action={formAction} className="grid gap-4" autoComplete="off">
+    <form action={formAction} className="grid gap-4" autoComplete="off" onSubmit={onSubmit}>
       <FormMessage error={state?.error} success={state?.success} />
+      {idempotencyKey ? <input type="hidden" name="idempotencyKey" value={idempotencyKey} /> : null}
       <Field>
         <Label htmlFor="client-name">Name</Label>
         <Input
@@ -65,10 +74,11 @@ export function ClientForm({
         </Field>
       </div>
       <Field>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="client-notes">Notes</Label>
         <Textarea
-          id="notes"
+          id="client-notes"
           name="notes"
+          autoComplete="off"
           defaultValue={defaultValues?.notes}
           placeholder="Allergies, preferences, how they found the shop…"
         />
@@ -91,7 +101,7 @@ export function ClientForm({
         </div>
       </Field>
       <div>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? "Saving…" : clientId ? "Save client" : "Add client"}
         </Button>
       </div>

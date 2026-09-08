@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getLiveSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {
-  const session = await getSession();
+  const session = await getLiveSession();
   if (session) {
     redirect("/dashboard");
   }

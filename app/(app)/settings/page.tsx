@@ -2,12 +2,18 @@ import type { Metadata } from "next";
 import { requireShop } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
+import { FlashNotice } from "@/components/flash-notice";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const { shop } = await requireShop();
+  const { saved } = await searchParams;
 
   return (
     <div className="grid gap-6">
@@ -21,7 +27,8 @@ export default async function SettingsPage() {
           <CardTitle>Shop</CardTitle>
           <CardDescription>These values apply to every booking in this account.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-3">
+          <FlashNotice saved={saved} message="Shop settings saved." />
           <SettingsForm
             defaultValues={{
               name: shop.name,

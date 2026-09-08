@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createAppointment, updateAppointment } from "@/actions/appointments";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { APPOINTMENT_STATUSES, DURATIONS, SERVICE_TYPES } from "@/lib/constants";
 import { centsToDollarsInput } from "@/lib/utils";
+import { useOnceSubmit } from "@/lib/use-once-submit";
 
 type Option = { id: string; name: string; hint?: string };
 
@@ -16,10 +17,12 @@ export function AppointmentForm({
   clients,
   artists,
   defaultValues,
+  idempotencyKey,
 }: {
   appointmentId?: string;
   clients: Option[];
   artists: Option[];
+  idempotencyKey?: string;
   defaultValues?: {
     clientId: string;
     artistId: string;
@@ -36,10 +39,16 @@ export function AppointmentForm({
     ? updateAppointment.bind(null, appointmentId)
     : createAppointment;
   const [state, formAction, pending] = useActionState(action, null);
+  const { onSubmit, unlock } = useOnceSubmit();
+
+  useEffect(() => {
+    if (state?.error) unlock();
+  }, [state, unlock]);
 
   return (
-    <form action={formAction} className="grid gap-4">
+    <form action={formAction} className="grid gap-4" autoComplete="off" onSubmit={onSubmit}>
       <FormMessage error={state?.error} success={state?.success} />
+      {idempotencyKey ? <input type="hidden" name="idempotencyKey" value={idempotencyKey} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <Label htmlFor="clientId">Client</Label>
@@ -138,7 +147,7 @@ export function AppointmentForm({
         </label>
       </div>
       <div>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? "Saving…" : appointmentId ? "Save appointment" : "Book appointment"}
         </Button>
       </div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { updateSettings } from "@/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TIMEZONES } from "@/lib/constants";
+import { useOnceSubmit } from "@/lib/use-once-submit";
 
 export function SettingsForm({
   defaultValues,
@@ -19,9 +20,14 @@ export function SettingsForm({
   };
 }) {
   const [state, action, pending] = useActionState(updateSettings, null);
+  const { onSubmit, unlock } = useOnceSubmit();
+
+  useEffect(() => {
+    if (state?.error) unlock();
+  }, [state, unlock]);
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} className="grid gap-4" onSubmit={onSubmit}>
       <FormMessage error={state?.error} success={state?.success} />
       <Field>
         <Label htmlFor="name">Shop name</Label>
@@ -51,7 +57,7 @@ export function SettingsForm({
         Hours are a shop-floor reminder for now. Day-by-day schedules and online booking come later.
       </p>
       <div>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? "Saving…" : "Save settings"}
         </Button>
       </div>

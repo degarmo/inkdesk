@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect } from "react";
 import { createArtist, updateArtist } from "@/actions/artists";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useOnceSubmit } from "@/lib/use-once-submit";
 
 export function ArtistForm({
   artistId,
@@ -16,16 +17,14 @@ export function ArtistForm({
 }) {
   const action = artistId ? updateArtist.bind(null, artistId) : createArtist;
   const [state, formAction, pending] = useActionState(action, null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const { onSubmit, unlock } = useOnceSubmit();
 
   useEffect(() => {
-    if (state?.success && !artistId) {
-      formRef.current?.reset();
-    }
-  }, [state, artistId]);
+    if (state?.error) unlock();
+  }, [state, unlock]);
 
   return (
-    <form ref={formRef} action={formAction} className="grid gap-4">
+    <form action={formAction} className="grid gap-4" onSubmit={onSubmit}>
       <FormMessage error={state?.error} success={state?.success} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
@@ -57,7 +56,7 @@ export function ArtistForm({
         Active on the roster
       </label>
       <div>
-        <Button type="submit" disabled={pending} variant={artistId ? "outline" : "default"}>
+        <Button type="submit" disabled={pending} aria-busy={pending} variant={artistId ? "outline" : "default"}>
           {pending ? "Saving…" : artistId ? "Save artist" : "Add artist"}
         </Button>
       </div>

@@ -3,14 +3,20 @@ import { requireShop } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { ArtistForm } from "@/components/forms/artist-form";
+import { FlashNotice } from "@/components/flash-notice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 
 export const metadata: Metadata = { title: "Artists" };
 
-export default async function ArtistsPage() {
+export default async function ArtistsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const { shop } = await requireShop();
+  const { saved } = await searchParams;
   const artists = await prisma.artist.findMany({
     where: { shopId: shop.id },
     include: { _count: { select: { appointments: true } } },
@@ -23,6 +29,8 @@ export default async function ArtistsPage() {
         title="Artists"
         description="Who is on the floor, what they do, and whether they are taking work."
       />
+
+      <FlashNotice saved={saved} message="Artist roster saved." />
 
       <Card className="max-w-3xl">
         <CardHeader>

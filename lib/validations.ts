@@ -51,14 +51,20 @@ export const appointmentSchema = z.object({
   depositPaid: z.boolean(),
 });
 
-export const sessionNoteSchema = z.object({
-  clientId: z.string().min(1),
-  appointmentId: z.string().optional().default(""),
-  designNotes: z.string().trim().max(4000).optional().default(""),
-  placement: z.string().trim().max(200).optional().default(""),
-  inkColors: z.string().trim().max(400).optional().default(""),
-  aftercareGiven: z.boolean(),
-});
+export const sessionNoteSchema = z
+  .object({
+    clientId: z.string().min(1),
+    appointmentId: z.string().optional().default(""),
+    designNotes: z.string().trim().max(4000).optional().default(""),
+    placement: z.string().trim().max(200).optional().default(""),
+    inkColors: z.string().trim().max(400).optional().default(""),
+    aftercareGiven: z.boolean(),
+  })
+  .refine(
+    (data) =>
+      data.designNotes.length > 0 || data.placement.length > 0 || data.inkColors.length > 0,
+    { message: "Add design notes, placement, or ink before saving." },
+  );
 
 export const settingsSchema = z.object({
   name: z.string().trim().min(2, "Shop name is required"),

@@ -53,6 +53,7 @@ export default async function NewAppointmentPage({
             />
           ) : (
             <AppointmentForm
+              idempotencyKey={crypto.randomUUID()}
               clients={clients.map((client) => ({ id: client.id, name: client.name }))}
               artists={artists.map((artist) => ({
                 id: artist.id,

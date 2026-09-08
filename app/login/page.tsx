@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getLiveSession } from "@/lib/auth";
 import { LoginForm } from "@/components/forms/auth-forms";
-import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage() {
-  if (await getSession()) {
+  if (await getLiveSession()) {
     redirect("/dashboard");
   }
 

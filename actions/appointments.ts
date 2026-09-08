@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTime } from "@/lib/dates";
+import { replayOrCreate } from "@/lib/idempotency";
 import { dollarsToCents } from "@/lib/utils";
 import { appointmentSchema, type ActionState } from "@/lib/validations";
 
@@ -53,19 +54,27 @@ export async function createAppointment(_prev: ActionState, formData: FormData):
   const timezone = await shopTimezone(session.shopId);
   const startAt = zonedDateTime(parsed.data.date, parsed.data.time, timezone);
 
-  const appointment = await prisma.appointment.create({
-    data: {
-      shopId: session.shopId,
-      clientId: parsed.data.clientId,
-      artistId: parsed.data.artistId,
-      startAt,
-      durationMin: parsed.data.durationMin,
-      serviceType: parsed.data.serviceType,
-      status: parsed.data.status,
-      depositCents: dollarsToCents(parsed.data.depositAmount),
-      depositPaid: parsed.data.depositPaid,
+  const { id } = await replayOrCreate(
+    session.shopId,
+    "appointment",
+    String(formData.get("idempotencyKey") ?? ""),
+    async (tx) => {
+      const appointment = await tx.appointment.create({
+        data: {
+          shopId: session.shopId,
+          clientId: parsed.data.clientId,
+          artistId: parsed.data.artistId,
+          startAt,
+          durationMin: parsed.data.durationMin,
+          serviceType: parsed.data.serviceType,
+          status: parsed.data.status,
+          depositCents: dollarsToCents(parsed.data.depositAmount),
+          depositPaid: parsed.data.depositPaid,
+        },
+      });
+      return appointment.id;
     },
-  });
+  );
 
   if (parsed.data.status === "completed") {
     await syncLastVisit(parsed.data.clientId, session.shopId);
@@ -74,7 +83,7 @@ export async function createAppointment(_prev: ActionState, formData: FormData):
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
   revalidatePath(`/clients/${parsed.data.clientId}`);
-  redirect(`/appointments/${appointment.id}`);
+  redirect(`/appointments/${id}`);
 }
 
 export async function updateAppointment(
@@ -132,7 +141,7 @@ export async function updateAppointment(
   revalidatePath(`/appointments/${appointmentId}`);
   revalidatePath("/dashboard");
   revalidatePath(`/clients/${parsed.data.clientId}`);
-  return { success: "Appointment saved." };
+  redirect(`/appointments/${appointmentId}?saved=1`);
 }
 
 export async function markDepositPaid(appointmentId: string) {
@@ -152,4 +161,5 @@ export async function markDepositPaid(appointmentId: string) {
   revalidatePath("/appointments");
   revalidatePath(`/appointments/${appointmentId}`);
   revalidatePath("/dashboard");
+  redirect(`/appointments/${appointmentId}?saved=1`);
 }

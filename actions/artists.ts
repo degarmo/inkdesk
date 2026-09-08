@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { artistSchema, type ActionState } from "@/lib/validations";
@@ -28,7 +29,7 @@ export async function createArtist(_prev: ActionState, formData: FormData): Prom
 
   revalidatePath("/artists");
   revalidatePath("/appointments");
-  return { success: "Artist added to the roster." };
+  redirect("/artists?saved=1");
 }
 
 export async function updateArtist(artistId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -61,5 +62,5 @@ export async function updateArtist(artistId: string, _prev: ActionState, formDat
 
   revalidatePath("/artists");
   revalidatePath("/appointments");
-  return { success: "Artist updated." };
+  redirect("/artists?saved=1");
 }
