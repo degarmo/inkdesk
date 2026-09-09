@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CalendarClock, CreditCard, Percent, Wallet } from "lucide-react";
 import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
 import { formatMoney, formatPhone, parseTags, serviceLabel, tagLabel } from "@/lib/utils";
+import { shopAnalytics } from "@/lib/shop-metrics";
 import { PageHeader } from "@/components/page-header";
+import { MetricCard } from "@/components/metric-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +24,7 @@ export default async function DashboardPage() {
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
 
-  const [todays, unpaid, recentClients] = await Promise.all([
+  const [todays, unpaid, recentClients, stats] = await Promise.all([
     prisma.appointment.findMany({
       where: { shopId: shop.id, startAt: { gte: start, lte: end } },
       include: { client: true, artist: true },
@@ -43,6 +46,7 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 6,
     }),
+    shopAnalytics(shop.id),
   ]);
 
   const prep = await prepReadyIds(
@@ -59,6 +63,9 @@ export default async function DashboardPage() {
         actions={
           <>
             <Button asChild variant="outline">
+              <Link href="/analytics">Analytics</Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link href="/clients/new">New client</Link>
             </Button>
             <Button asChild>
@@ -67,6 +74,33 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          icon={Wallet}
+          label="Revenue (30d)"
+          value={formatMoney(stats.revenue30Cents)}
+          hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
+        />
+        <MetricCard
+          icon={CreditCard}
+          label="Unpaid deposits"
+          value={formatMoney(stats.unpaidDepositCents)}
+          hint={`${stats.unpaidDepositCount} open`}
+        />
+        <MetricCard
+          icon={Percent}
+          label="Deposit collection"
+          value={stats.depositRate === null ? "—" : `${Math.round(stats.depositRate * 100)}%`}
+          hint={`${stats.paidDeposits} of ${stats.depositBooked} deposits marked paid`}
+        />
+        <MetricCard
+          icon={CalendarClock}
+          label="Upcoming week"
+          value={String(stats.upcomingWeek)}
+          hint="Scheduled in the next 7 days"
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

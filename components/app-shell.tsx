@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { CalendarDays, LayoutDashboard, Menu, Settings, Shield, Users, X, PenTool } from "lucide-react";
+import { BarChart3, CalendarDays, LayoutDashboard, Menu, Settings, Shield, Users, X, PenTool } from "lucide-react";
 import { logOut } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { cn, isAdminRole } from "@/lib/utils";
 
 const floorLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/artists", label: "Artists", icon: PenTool },

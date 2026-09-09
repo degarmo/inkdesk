@@ -64,6 +64,7 @@ export const PAYMENT_STATUSES = [
 
 export const SESSION_COOKIE = "inkdesk_session";
 export const PLATFORM_COOKIE = "inkdesk_platform";
+export const VISITOR_COOKIE = "inkdesk_vid";
 export const SESSION_DAYS = 7;
 
 export const STRIPE_NOT_CONFIGURED = "Connect Stripe in Admin → Settings";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Figtree, Newsreader } from "next/font/google";
-import "./globals.css";
+import { VisitBeacon } from "@/components/visit-beacon";
 
 const sans = Figtree({
   variable: "--font-sans",
@@ -24,7 +24,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable} h-full antialiased`}>
-      <body className="min-h-full bg-paper font-sans text-ink">{children}</body>
+      <body className="min-h-full bg-paper font-sans text-ink">
+        <VisitBeacon />
+        {children}
+      </body>
     </html>
   );
 }

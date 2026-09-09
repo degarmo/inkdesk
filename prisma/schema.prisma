@@ -191,3 +191,18 @@ model IdempotencyKey {
 
   @@index([shopId, kind])
 }
+
+/** First-party page views. shopId is set when a parlor session cookie is present. */
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  shopId    String?
+  sessionId String
+  surface   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([shopId, createdAt])
+  @@index([sessionId, createdAt])
+}

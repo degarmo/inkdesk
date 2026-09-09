@@ -25,9 +25,19 @@ export async function platformMetrics() {
     bookingTotal,
     booking7,
     booking30,
+    paymentsAll,
     payments30,
     recentLogins,
     recentBookings,
+    shops7,
+    shops30,
+    shopsWithBookings,
+    views7,
+    views30,
+    sessions7Rows,
+    sessions30Rows,
+    topPathRows,
+    shopsLogin,
   ] = await Promise.all([
     prisma.shop.count(),
     prisma.user.groupBy({ by: ["role"], _count: { _all: true } }),
@@ -35,6 +45,11 @@ export async function platformMetrics() {
     prisma.appointment.count(),
     prisma.appointment.count({ where: { startAt: { gte: d7, lte: now } } }),
     prisma.appointment.count({ where: { startAt: { gte: d30, lte: now } } }),
+    prisma.payment.aggregate({
+      where: { status: "succeeded" },
+      _count: { _all: true },
+      _sum: { amountCents: true },
+    }),
     prisma.payment.aggregate({
       where: { status: "succeeded", createdAt: { gte: d30 } },
       _count: { _all: true },
@@ -49,6 +64,28 @@ export async function platformMetrics() {
       by: ["shopId"],
       where: { startAt: { gte: d30, lte: now } },
       _count: { _all: true },
+    }),
+    prisma.shop.count({ where: { createdAt: { gte: d7 } } }),
+    prisma.shop.count({ where: { createdAt: { gte: d30 } } }),
+    prisma.shop.count({ where: { appointments: { some: {} } } }),
+    prisma.pageView.count({ where: { createdAt: { gte: d7 } } }),
+    prisma.pageView.count({ where: { createdAt: { gte: d30 } } }),
+    prisma.pageView.groupBy({
+      by: ["sessionId"],
+      where: { createdAt: { gte: d7 } },
+    }),
+    prisma.pageView.groupBy({
+      by: ["sessionId"],
+      where: { createdAt: { gte: d30 } },
+    }),
+    prisma.pageView.groupBy({
+      by: ["path"],
+      where: { createdAt: { gte: d30 } },
+      _count: { _all: true },
+    }),
+    prisma.user.groupBy({
+      by: ["shopId"],
+      _max: { lastSeenAt: true },
     }),
   ]);
 
@@ -66,6 +103,16 @@ export async function platformMetrics() {
   for (const row of recentLogins) activeIds.add(row.shopId);
   for (const row of recentBookings) activeIds.add(row.shopId);
 
+  let churnNoLogin30 = 0;
+  const loggedIn = new Set<string>();
+  for (const row of shopsLogin) {
+    if (row._max.lastSeenAt && row._max.lastSeenAt >= d30) loggedIn.add(row.shopId);
+  }
+  const allShops = await prisma.shop.findMany({ select: { id: true } });
+  for (const shop of allShops) {
+    if (!loggedIn.has(shop.id)) churnNoLogin30 += 1;
+  }
+
   return {
     now,
     shopCount,
@@ -78,6 +125,21 @@ export async function platformMetrics() {
     booking30,
     payments30Count: payments30._count._all,
     payments30Cents: payments30._sum.amountCents ?? 0,
+    gmvAllCents: paymentsAll._sum.amountCents ?? 0,
+    gmvAllCount: paymentsAll._count._all,
+    shops7,
+    shops30,
+    shopsWithBookings,
+    conversionRate: shopCount === 0 ? null : shopsWithBookings / shopCount,
+    churnNoLogin30,
+    views7,
+    views30,
+    sessions7: sessions7Rows.length,
+    sessions30: sessions30Rows.length,
+    topPaths: topPathRows
+      .map((row) => ({ path: row.path, count: row._count._all }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8),
   };
 }
 

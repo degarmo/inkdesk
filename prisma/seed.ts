@@ -1,5 +1,6 @@
 import { copyFile, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { hash } from "bcryptjs";
 import { addDays, format, parseISO } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
@@ -18,8 +19,49 @@ function at(dayOffset: number, time: string) {
   return atIn(TZ, dayOffset, time);
 }
 
+function daysAgo(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+async function seedPageViews(ids: { blackbirdId: string; harborId: string }) {
+  const buckets: { path: string; surface: string; shopId: string | null; count: number }[] = [
+    { path: "/", surface: "public", shopId: null, count: 42 },
+    { path: "/login", surface: "public", shopId: null, count: 31 },
+    { path: "/signup", surface: "public", shopId: null, count: 14 },
+    { path: "/platform/login", surface: "platform", shopId: null, count: 9 },
+    { path: "/platform", surface: "platform", shopId: null, count: 16 },
+    { path: "/dashboard", surface: "parlor", shopId: ids.blackbirdId, count: 38 },
+    { path: "/appointments", surface: "parlor", shopId: ids.blackbirdId, count: 24 },
+    { path: "/clients", surface: "parlor", shopId: ids.blackbirdId, count: 19 },
+    { path: "/analytics", surface: "parlor", shopId: ids.blackbirdId, count: 8 },
+    { path: "/dashboard", surface: "parlor", shopId: ids.harborId, count: 12 },
+    { path: "/appointments", surface: "parlor", shopId: ids.harborId, count: 7 },
+  ];
+
+  const sessions = Array.from({ length: 48 }, () => randomUUID());
+  const rows = [];
+  let i = 0;
+  for (const bucket of buckets) {
+    for (let n = 0; n < bucket.count; n += 1) {
+      const age = Math.floor((n / bucket.count) * 28);
+      rows.push({
+        path: bucket.path,
+        surface: bucket.surface,
+        shopId: bucket.shopId,
+        sessionId: sessions[(i + n) % sessions.length],
+        createdAt: daysAgo(age),
+      });
+    }
+    i += 3;
+  }
+  await prisma.pageView.createMany({ data: rows });
+}
+
 async function main() {
   await prisma.payment.deleteMany();
+  await prisma.pageView.deleteMany();
   await prisma.clientImage.deleteMany();
   await prisma.idempotencyKey.deleteMany();
   await prisma.sessionNote.deleteMany();
@@ -271,6 +313,26 @@ async function main() {
       depositCents: 20000,
       depositPaid: false,
     },
+    {
+      clientId: sam.id,
+      artistId: diego.id,
+      startAt: at(-8, "15:00"),
+      durationMin: 60,
+      serviceType: "consult",
+      status: "cancelled",
+      depositCents: 5000,
+      depositPaid: false,
+    },
+    {
+      clientId: chris.id,
+      artistId: maya.id,
+      startAt: at(-5, "11:00"),
+      durationMin: 90,
+      serviceType: "tattoo",
+      status: "no-show",
+      depositCents: 8000,
+      depositPaid: false,
+    },
   ];
 
   const createdAppointments = [];
@@ -388,6 +450,15 @@ async function main() {
       },
       {
         shopId: shop.id,
+        appointmentId: createdAppointments[0].id,
+        clientId: jordan.id,
+        amountCents: 25000,
+        status: "succeeded",
+        type: "balance",
+        createdAt: at(-2, "16:10"),
+      },
+      {
+        shopId: shop.id,
         appointmentId: createdAppointments[1].id,
         clientId: noah.id,
         amountCents: 5000,
@@ -397,12 +468,39 @@ async function main() {
       },
       {
         shopId: shop.id,
+        appointmentId: createdAppointments[2].id,
+        clientId: priya.id,
+        amountCents: 15000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: at(0, "09:40"),
+      },
+      {
+        shopId: shop.id,
         appointmentId: createdAppointments[3].id,
         clientId: sam.id,
         amountCents: 5000,
         status: "pending",
         type: "deposit",
         createdAt: at(0, "10:00"),
+      },
+      {
+        shopId: shop.id,
+        appointmentId: createdAppointments[5].id,
+        clientId: riley.id,
+        amountCents: 8000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: at(-1, "18:00"),
+      },
+      {
+        shopId: shop.id,
+        appointmentId: createdAppointments[6].id,
+        clientId: ava.id,
+        amountCents: 20000,
+        status: "succeeded",
+        type: "deposit",
+        createdAt: at(-1, "11:00"),
       },
     ],
   });
@@ -531,6 +629,15 @@ async function main() {
         type: "deposit",
         createdAt: atIn(harborTz, -1, "09:00"),
       },
+      {
+        shopId: harbor.id,
+        appointmentId: harborBookings[0].id,
+        clientId: mina.id,
+        amountCents: 14000,
+        status: "succeeded",
+        type: "balance",
+        createdAt: atIn(harborTz, -3, "15:00"),
+      },
     ],
   });
 
@@ -565,7 +672,7 @@ async function main() {
       tags: JSON.stringify(["regular"]),
     },
   });
-  await prisma.appointment.create({
+  const quietBooking = await prisma.appointment.create({
     data: {
       shopId: quiet.id,
       clientId: reed.id,
@@ -578,6 +685,17 @@ async function main() {
       depositPaid: true,
     },
   });
+  await prisma.payment.create({
+    data: {
+      shopId: quiet.id,
+      appointmentId: quietBooking.id,
+      clientId: reed.id,
+      amountCents: 6000,
+      status: "succeeded",
+      type: "deposit",
+      createdAt: atIn(quietTz, -45, "14:20"),
+    },
+  });
 
   await prisma.platformUser.create({
     data: {
@@ -587,6 +705,8 @@ async function main() {
       active: true,
     },
   });
+
+  await seedPageViews({ blackbirdId: shop.id, harborId: harbor.id });
 
   console.log("Seeded shops + platform operator.");
   console.log("  Blackbird owner:  demo@blackbird.ink / parlor-demo");
