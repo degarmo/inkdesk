@@ -80,13 +80,21 @@ export function shopHasOwnStripeKeys(shop: ShopStripeFields) {
 }
 
 export function publicOrigin() {
-  return process.env.APP_URL?.replace(/\/$/, "") || "http://127.0.0.1:43147";
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim() ||
+    process.env.RENDER_EXTERNAL_URL?.trim() ||
+    "";
+  if (raw) return raw.replace(/\/$/, "");
+  return "http://127.0.0.1:43147";
 }
 
 export async function requestOrigin() {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   if (!host) return publicOrigin();
-  const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
+  const proto =
+    h.get("x-forwarded-proto") ??
+    (host.includes("localhost") || host.startsWith("127.") ? "http" : "https");
   return `${proto}://${host}`;
 }

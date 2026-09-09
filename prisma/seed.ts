@@ -5,10 +5,11 @@ import { hash } from "bcryptjs";
 import { addDays, format, parseISO } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { PrismaClient } from "@prisma/client";
+import { storageRoot } from "../lib/paths";
 
 const prisma = new PrismaClient();
 const TZ = "America/Los_Angeles";
-const STORAGE_ROOT = path.join(process.cwd(), "storage");
+const STORAGE_ROOT = storageRoot();
 
 function atIn(tz: string, dayOffset: number, time: string) {
   const today = formatInTimeZone(new Date(), tz, "yyyy-MM-dd");

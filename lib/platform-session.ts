@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { PLATFORM_COOKIE, SESSION_DAYS } from "./constants";
+import { clearCookieOptions, sessionCookieOptions } from "./cookie-options";
 
 export type PlatformSession = {
   id: string;
@@ -55,16 +56,10 @@ export async function getPlatformSession(): Promise<PlatformSession | null> {
 export async function setPlatformSessionCookie(user: PlatformSession) {
   const token = await signPlatformSession(user);
   const jar = await cookies();
-  jar.set(PLATFORM_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
-  });
+  jar.set(PLATFORM_COOKIE, token, sessionCookieOptions(SESSION_DAYS * 24 * 60 * 60));
 }
 
 export async function clearPlatformSessionCookie() {
   const jar = await cookies();
-  jar.delete(PLATFORM_COOKIE);
+  jar.set(PLATFORM_COOKIE, "", clearCookieOptions());
 }

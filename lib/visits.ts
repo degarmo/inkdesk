@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE, VISITOR_COOKIE, SESSION_DAYS } from "@/lib/constants";
+import { sessionCookieOptions } from "@/lib/cookie-options";
 import { readSession } from "@/lib/session";
 
 const SKIP_PREFIXES = ["/_next", "/api", "/favicon", "/storage"];
@@ -26,13 +27,7 @@ export async function recordVisit(rawPath: unknown) {
   let sessionId = jar.get(VISITOR_COOKIE)?.value;
   if (!sessionId || sessionId.length < 8 || sessionId.length > 80) {
     sessionId = randomUUID();
-    jar.set(VISITOR_COOKIE, sessionId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_DAYS * 24 * 60 * 60 * 4,
-    });
+    jar.set(VISITOR_COOKIE, sessionId, sessionCookieOptions(SESSION_DAYS * 24 * 60 * 60 * 4));
   }
 
   const shopToken = jar.get(SESSION_COOKIE)?.value;

@@ -60,7 +60,7 @@ Optional `.env` keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
 ## Assumptions
 
 - Times are stored in UTC and shown in the shop timezone.
-- SQLite is enough for a single-shop trial on a laptop. Switch to Postgres before sharing a server.
+- SQLite on a laptop, or SQLite on a Render persistent disk, is enough for a small real-user trial. Switch to Postgres before more than one instance or heavier write load.
 - Auth is a signed, httpOnly session cookie (JWT via `jose` + `bcryptjs` passwords). No third-party auth provider. Live role and `active` come from the database on each request.
 - Re-seeding recreates the shop, which invalidates existing session cookies. Inkdesk expires those cookies and sends you to `/login` instead of looping.
 - Session notes require at least one of: design notes, placement, or ink/colors.
@@ -121,24 +121,75 @@ Scripts:
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Next.js on port 43147 |
-| `npm run db:migrate` | Create / apply Prisma migrations |
-| `npm run db:seed` | Reset demo data (three shops + platform operator + page views). Existing demo JWTs are expired on next request. Writes sample images under `storage/`. |
-| `npm run build` / `npm start` | Production build |
+| `npm run db:migrate` | Create / apply Prisma migrations (dev) |
+| `npm run db:migrate:deploy` | Apply migrations without prompting (`prisma migrate deploy`) |
+| `npm run db:seed` | Reset demo data (three shops + platform operator + page views). Existing demo JWTs are expired on next request. Writes sample images under `storage/` (or `STORAGE_ROOT`). **Destructive — do not run against a live parlor.** |
+| `npm run build` / `npm start` | Production build. `start` binds `0.0.0.0` and uses `PORT` (default 43147). |
+
+## Deploy on Render
+
+Blueprint file: [`render.yaml`](./render.yaml). This is the path for real-user testing. SQLite and image uploads sit on a **persistent disk**; without it, every deploy wipes the database and parlor photos.
+
+**Not done / not recommended for this beta**
+
+- Postgres is still the right database before you scale past one instance. SQLite + a disk is acceptable for a handful of testers on a single Starter box.
+- Images are still local files (`STORAGE_ROOT`), not S3.
+- There is **no shared platform Stripe key**. Each parlor pastes its own keys in Admin → Settings.
+- The Blueprint does **not** run `db:seed` on boot. Seed deletes shops and `storage/shops`.
+- Persistent disks require a **paid** instance (Starter or larger). They pin the service to one instance: no autoscaling, brief downtime on deploy.
+- Changing `AUTH_SECRET` later invalidates every session cookie **and** cannot decrypt parlor Stripe secrets already stored.
+
+### Five steps (GitHub → Render)
+
+1. Push this repo to GitHub (full `main`, including `app/`, `prisma/`, `render.yaml`).
+2. In [Render](https://dashboard.render.com) → **New** → **Blueprint**. Connect the GitHub repo and select `main`.
+3. When Render prompts for `sync: false` env vars, paste:
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | `file:/var/data/inkdesk.db` |
+   | `AUTH_SECRET` | `openssl rand -base64 32` (save it; do not rotate casually) |
+   | `NEXT_PUBLIC_APP_URL` | `https://<service-name>.onrender.com` (no trailing slash; match the URL Render assigns, then update if you add a custom domain) |
+
+   `STORAGE_ROOT=/var/data/storage` and Node 20 are already in the Blueprint. Disk: **1 GB** at `/var/data`.
+4. Apply. First build runs `npm ci --include=dev && npx prisma generate && npm run build`. Start runs `mkdir -p /var/data/storage && npx prisma migrate deploy && npm start`. Health check: `/login`.
+5. Open `https://<service>.onrender.com/login`. Optionally seed **once** from Render **Shell** (`npm run db:seed`) if you want the demo parlors. Never put seed in the start command.
+
+Stripe webhook (per shop, after you save that parlor’s keys):
+
+- Preferred: `https://<host>/api/stripe/webhook/<shopId>`
+- Fallback: `https://<host>/api/stripe/webhook` (shop comes from Checkout `metadata.shopId`)
+
+Admin → Parlor settings shows the preferred URL for the logged-in shop.
+
+**Demo logins** (only after a one-time seed — empty prod has none):
+
+| | Email | Password |
+| --- | --- | --- |
+| Blackbird owner | `demo@blackbird.ink` | `parlor-demo` |
+| Blackbird admin | `admin@blackbird.ink` | `parlor-admin` |
+| Blackbird staff | `artist@blackbird.ink` | `parlor-staff` |
+| Harbor owner | `owner@harborneedle.ink` | `parlor-harbor` |
+| Platform | `platform@inkdesk.app` | `platform-admin` |
+
+Instance: **Starter**. Free Render web services cannot attach a disk; do not use Free for this app.
 
 ## Environment
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | Prisma connection string. Default: `file:./dev.db` (file lives in `prisma/`) |
+| `DATABASE_URL` | Prisma connection string. Local default: `file:./dev.db` (relative to `prisma/`). Render: `file:/var/data/inkdesk.db`. |
 | `AUTH_SECRET` | Signs session cookies and encrypts parlor Stripe secrets. Use a long random value in production. |
-| `APP_URL` | Optional origin if Stripe cannot read the request host. |
+| `NEXT_PUBLIC_APP_URL` | Public HTTPS origin (no trailing slash). Used for Stripe fallback URLs and server-action allowed origins. Render also sets `RENDER_EXTERNAL_URL`. |
+| `APP_URL` | Optional server-only alias for the same origin. |
+| `STORAGE_ROOT` | Directory for parlor image files. Local default: `./storage`. Render: `/var/data/storage`. |
 | `STRIPE_SECRET_KEY` | Optional local-dev fallback only. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Optional local-dev fallback only. |
 | `STRIPE_WEBHOOK_SECRET` | Optional local-dev fallback only. |
 
 `.env` is gitignored. Commit `.env.example` only.
 
-Uploaded files are not secrets, but they are shop-private. Do not commit `storage/shops/`.
+Uploaded files are not secrets, but they are shop-private. Do not commit `storage/shops/`. Session cookies are `Secure` when `NODE_ENV=production` (Render HTTPS).
 
 ## Switch to Postgres
 

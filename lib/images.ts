@@ -8,8 +8,9 @@ import {
   type ImageKind,
 } from "./constants";
 import { prisma } from "./prisma";
+import { storageRoot } from "./paths";
 
-export const STORAGE_ROOT = path.join(process.cwd(), "storage");
+export const STORAGE_ROOT = storageRoot();
 
 export const ACCEPTED_MIME = {
   "image/jpeg": "jpg",
