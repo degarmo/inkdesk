@@ -5,7 +5,8 @@
 #   cp .env.example .env   # DATABASE_URL already matches these credentials
 #   npx prisma migrate dev
 #   npm run db:seed        # destructive demo data — never against a live parlor
-#   npm run dev
+#   npm run dev            # Next.js UI on :43147
+#   # Django API (same DATABASE_URL): see README "Run the Django API locally"
 
 services:
   postgres:

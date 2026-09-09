@@ -21,6 +21,7 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - **Platform (`/platform`):** Inkdesk operators over **all shops**. Separate `PlatformUser` table and cookie. Shop logins cannot open it. Metrics include shops, active shops, signups, conversion (shops with ≥1 booking), churn proxy (no login 30d), GMV, bookings, clients, and first-party visits (7/30d, rough sessions, top paths).
 - **First-party visits:** layout beacon `POST /api/visits` writes `PageView` rows (path, optional shopId, visitor cookie, surface). No Google Analytics.
 - **Stripe (per parlor):** save `stripePublishableKey`, `stripeSecretKey`, and `stripeWebhookSecret` on the shop. Checkout and API calls use **that shop’s secret key**. Pay deposit / pay balance open Checkout. `checkout.session.completed` marks the payment succeeded and, for deposits, sets `appointment.depositPaid`.
+- **Django API (Phase 1):** `backend/` is a Django 5 + DRF service on the same PostgreSQL database. Next.js remains the UI and still reads/writes through Prisma. The API exposes health, parlor token auth, and shop-scoped client / appointment reads. It does **not** replace server actions in this PR.
 
 ## Platform billing — next
 
@@ -39,6 +40,7 @@ Each parlor pastes its own Stripe keys for client deposits (or skips and takes c
 - Inventory, retail, or payroll.
 - Client self-upload, HEIC conversion, image editing, or S3.
 - **Invite email.** Onboarding can create a staff/admin login and shows a temporary password on screen. Nothing is emailed.
+- **Django does not own writes yet.** Creates, updates, Stripe, images, and onboarding still go through Next + Prisma. Platform operator auth is not on the Django API.
 
 ## Roles
 
@@ -106,7 +108,7 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/inkdesk?sslmode=require"
 
 Do not use a `file:` SQLite URL. The app refuses to start if `DATABASE_URL` is a SQLite path.
 
-Open [http://localhost:43147](http://localhost:43147).
+Open [http://localhost:43147](http://localhost:43147). The Django API is optional for UI work; see **Run the Django API locally** below.
 
 **Demo shop — Blackbird Ink** (America/Los_Angeles)
 
@@ -158,6 +160,86 @@ Scripts:
 | `npm run db:seed` | Reset demo data (four shops + platform operator + page views). Blackbird, Harbor, and Ash & Ivy are already onboarded. Draft Parlor is left incomplete for the setup wizard. Existing demo JWTs are expired on next request. Writes sample images under `storage/` (or `STORAGE_ROOT`). **Destructive — do not run against a live parlor. Do not add this to the Render start command.** |
 | `npm run build` / `npm start` | Production build. `start` binds `0.0.0.0` and uses `PORT` (default 43147). |
 
+## Run the Django API locally
+
+Requires Python 3.12+ and the **same PostgreSQL** as Prisma (`DATABASE_URL`). Do not point Django at SQLite.
+
+```bash
+# Postgres + Prisma tables + demo rows (once)
+docker compose up -d
+cp .env.example .env
+npx prisma migrate deploy
+npm run db:seed                 # destructive — never against a live parlor
+
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env            # or export DJANGO_SECRET_KEY and DJANGO_DEBUG
+# DATABASE_URL is picked up from the repo-root .env if backend/.env omits it
+python manage.py migrate        # Django system tables + django_shop_auth_token only
+python manage.py runserver 8000
+```
+
+Open [http://127.0.0.1:8000/api/health/](http://127.0.0.1:8000/api/health/) — expect `{"status":"ok"}`.
+
+**Seed bridge:** parlor shops, users, clients, and appointments are created by `npm run db:seed`, not by Django. Login against those bcrypt hashes:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/auth/login/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@blackbird.ink","password":"parlor-demo"}'
+# then:
+# curl -s http://127.0.0.1:8000/api/clients/ -H "Authorization: Token <token>"
+```
+
+Production-style start (what Render runs): `bash start.sh` (`migrate` then gunicorn on `PORT`, default 8000).
+
+### Schema ownership (Phase 1)
+
+Prisma **owns** domain tables: `Shop`, `User`, `PlatformUser`, `Artist`, `Client`, `Appointment`, `SessionNote`, `ClientImage`, `Payment`, `IdempotencyKey`, `PageView` (including `Shop.onboardingCompletedAt` / `onboardingStep`). Django maps them with `managed = False` and inspectdb-style `db_table` / `db_column` names (PascalCase tables, camelCase columns). `python manage.py migrate` will not CREATE or ALTER those tables.
+
+Django **owns** `django_*` system tables and `django_shop_auth_token` (API tokens for parlor users). Those live in the PostgreSQL schema `django`, not `public`, so a first-time `prisma migrate deploy` still sees an empty public schema if the API boots first (Prisma P3005). Token rows have no database-level FK to `User`. Unmanaged models still read `public."Shop"` via `search_path=django,public`.
+
+Phase 2 takes ownership of the domain tables (`managed = True`, stop `prisma migrate deploy`). Do not run two competing migrate tools against the same parlor tables.
+
+### Endpoints (Phase 1)
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/health/` | No | Postgres `SELECT 1`. Render health check. |
+| POST | `/api/auth/login/` | No | `{email, password}` against Prisma `User` + bcrypt. Returns `{token, user}`. |
+| POST | `/api/auth/logout/` | Token | Deletes the current token. |
+| GET | `/api/auth/me/` | Token | Current parlor user + public shop fields (no Stripe secrets). |
+| GET | `/api/clients/` | Token | Shop-scoped list. `?q=` searches name / phone / email. |
+| GET | `/api/clients/<id>/` | Token | Shop-scoped detail. Other shops 404. |
+| GET | `/api/appointments/` | Token | Shop-scoped list with client + artist. Filters: `artistId`, `status`, `day`, `from`, `to`. |
+| GET | `/api/appointments/<id>/` | Token | Shop-scoped detail. |
+
+Send `Authorization: Token <key>`. JSON field names match Prisma (camelCase). `tags` is a parsed array. Django `/admin/` is a local inspect tool for Django superusers (domain models are read-only); platform operator admin is Phase 2.
+
+### How Next will call Django next
+
+Not wired in this PR. Next keeps using Prisma and server actions. When a route moves:
+
+1. Set `DJANGO_API_URL` (server) to the Django origin — local `http://127.0.0.1:8000`, Render `https://<inkdesk-api>.onrender.com`.
+2. Prefer **server-side** fetches from Next (no CORS). If the browser talks to Django directly, set `CORS_ALLOWED_ORIGINS` on the API to `NEXT_PUBLIC_APP_URL`.
+3. Exchange parlor credentials (or a server-held token) with `POST /api/auth/login/` and send `Authorization: Token …` on reads.
+4. Move writes only after Django owns the table. Do not dual-write.
+
+### Django env vars
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Same PostgreSQL URL as Prisma. Required. `file:` / sqlite rejected. Prisma’s `?schema=public` is stripped. |
+| `DJANGO_SECRET_KEY` or `SECRET_KEY` | Django signing key. Render Blueprint generates `SECRET_KEY`. Not the same as Next `AUTH_SECRET`. |
+| `DJANGO_DEBUG` | `true` locally. Blueprint sets `false`. |
+| `ALLOWED_HOSTS` | Comma list. Render adds `.onrender.com` and `RENDER_EXTERNAL_HOSTNAME`. |
+| `CORS_ALLOWED_ORIGINS` | Browser origins. Local default is the Next ports. Unset on Render until Next calls the API. |
+| `PORT` | Gunicorn bind. Render sets this. Local `runserver` default is 8000. |
+
+`python manage.py test parlor` creates a disposable `test_inkdesk` database (needs CREATEDB, which the Docker `inkdesk` role has) and builds unmanaged tables in that test DB only.
+
 ## Deploy on Render
 
 Blueprint file: [`render.yaml`](./render.yaml). This is the path for real-user testing.
@@ -166,9 +248,10 @@ Blueprint file: [`render.yaml`](./render.yaml). This is the path for real-user t
 
 | Resource | Name | What it is |
 | --- | --- | --- |
-| Web | `inkdesk` | Node 20, Starter plan, health check `/login` |
-| Postgres | `inkdesk-db` | PostgreSQL 16, `basic-256mb`, database/user `inkdesk`, 1 GB disk |
-| Disk (web) | `inkdesk-data` | 1 GB at `/var/data` for **image uploads only** (`STORAGE_ROOT=/var/data/storage`) |
+| Web | `inkdesk` | Node 20, Starter plan, health check `/login`. Prisma migrate + Next.js. |
+| Web | `inkdesk-api` | Python 3.12, Starter plan, `rootDir: backend`. `bash start.sh` = `migrate` then gunicorn. Health `/api/health/`. |
+| Postgres | `inkdesk-db` | PostgreSQL 16, `basic-256mb`, database/user `inkdesk`, 1 GB disk. **Shared** by Next and Django. |
+| Disk (Next) | `inkdesk-data` | 1 GB at `/var/data` for **image uploads only** (`STORAGE_ROOT=/var/data/storage`) |
 
 `DATABASE_URL` is **not** a secret you paste. The Blueprint sets it from `inkdesk-db` (`fromDatabase` → `connectionString` = Internal Database URL). Do not set it to `file:/var/data/inkdesk.db` or any other SQLite path.
 
@@ -181,16 +264,21 @@ Blueprint file: [`render.yaml`](./render.yaml). This is the path for real-user t
 | `NEXT_PUBLIC_APP_URL` | You, once | `https://<service-name>.onrender.com` (no trailing slash; update if you add a custom domain) |
 | `STORAGE_ROOT` | Blueprint | `/var/data/storage` |
 | `NODE_VERSION` | Blueprint | `20` |
+| `SECRET_KEY` | Blueprint (`inkdesk-api`) | Generated. Django signing key. |
+| `DJANGO_DEBUG` | Blueprint (`inkdesk-api`) | `false` |
+| `PYTHON_VERSION` | Blueprint (`inkdesk-api`) | `3.12.3` |
 
-Start command (every boot): `mkdir -p /var/data/storage && npx prisma migrate deploy && npm start`. That applies pending Prisma migrations to Postgres, then runs Next.js. **Do not** append `npm run db:seed` — seed deletes every shop, user, and `storage/shops`.
+Next start (every boot): `mkdir -p /var/data/storage && npx prisma migrate deploy && npm start`. That applies pending Prisma migrations to Postgres, then runs Next.js. **Do not** append `npm run db:seed` — seed deletes every shop, user, and `storage/shops`.
+
+Django start (every boot): `bash start.sh` → `python manage.py migrate --noinput` then `gunicorn --bind 0.0.0.0:$PORT inkdesk.wsgi:application`. That migrate does **not** create parlor tables.
 
 ### Five steps (GitHub → Render)
 
 1. Push this repo to GitHub (full `main`, including `app/`, `prisma/`, `render.yaml`).
 2. In [Render](https://dashboard.render.com) → **New** → **Blueprint**. Connect the GitHub repo and select `main`.
-3. Confirm the Blueprint will create **both** the `inkdesk` web service and the `inkdesk-db` Postgres instance. When Render prompts for `sync: false` env vars, paste `AUTH_SECRET` and `NEXT_PUBLIC_APP_URL` only. Leave `DATABASE_URL` to the linked database.
-4. Apply. First build runs `npm ci --include=dev && npx prisma generate && npm run build`. Start runs `mkdir -p /var/data/storage && npx prisma migrate deploy && npm start`. Health check: `/login`.
-5. Open `https://<service>.onrender.com/login`. Optionally seed **once** from Render **Shell** (`npm run db:seed`) if you want the demo parlors. Never put seed in the start command.
+3. Confirm the Blueprint will create **both** web services (`inkdesk`, `inkdesk-api`) and the `inkdesk-db` Postgres instance. When Render prompts for `sync: false` env vars, paste `AUTH_SECRET` and `NEXT_PUBLIC_APP_URL` only. Leave `DATABASE_URL` to the linked database on both services. Django `SECRET_KEY` is generated.
+4. Apply. Next build: `npm ci --include=dev && npx prisma generate && npm run build`. Next start: `mkdir -p /var/data/storage && npx prisma migrate deploy && npm start` (health `/login`). API build: `pip install -r requirements.txt`. API start: `bash start.sh` (health `/api/health/`).
+5. Open `https://<inkdesk>.onrender.com/login`. Optionally seed **once** from the Next service **Shell** (`npm run db:seed`) if you want the demo parlors. Never put seed in either start command. Then `https://<inkdesk-api>.onrender.com/api/health/` should return 200. After seed, `POST /api/auth/login/` with a demo parlor user works against the same rows.
 
 **Already deployed with SQLite on disk?** Re-syncing this Blueprint adds Postgres and points `DATABASE_URL` at it. Rows in `/var/data/inkdesk.db` (if that file still exists) are **not** copied. There is no automated SQLite → Postgres data migration in this repo. Cut over on an empty Postgres instance, or dump/restore yourself, then ignore or delete the old SQLite file. Image files already under `/var/data/storage` stay on the web disk.
 
@@ -220,8 +308,8 @@ Web instance: **Starter**. Free Render web services cannot attach a disk; do not
 
 - **No SQLite → Postgres data migration.** Existing parlor rows on a leftover SQLite disk file are not imported.
 - Images are still local files (`STORAGE_ROOT` on the 1 GB web disk), not S3. Without that disk, deploys wipe parlor photos (the database itself is now Render Postgres and survives deploys).
-- Django rewrite is explicitly later — this stack stays Next.js + Prisma.
-- There is **no shared platform Stripe key**. Each parlor pastes its own keys in Admin → Settings.
+- Django is an API sibling, not a replacement. Next + Prisma still serve the UI and writes. See **Phase 2** below.
+- There is **no shared platform Stripe key**. Each parlor pastes its own keys in Admin → Settings. Platform billing is still later (see **Platform billing — next**).
 - The Blueprint does **not** run `db:seed` on boot. Seed deletes shops and `storage/shops`.
 - Persistent disks pin the web service to one instance: no autoscaling, brief downtime on deploy.
 - Changing `AUTH_SECRET` later invalidates every session cookie **and** cannot decrypt parlor Stripe secrets already stored.
@@ -230,7 +318,7 @@ Web instance: **Starter**. Free Render web services cannot attach a disk; do not
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string for Prisma. Local Docker default: `postgresql://inkdesk:inkdesk@localhost:5432/inkdesk?schema=public`. Render: Internal URL from `inkdesk-db`. External (laptop → Render): same URL + `sslmode=require`. `file:` SQLite URLs are rejected. |
+| `DATABASE_URL` | PostgreSQL connection string for Prisma **and** Django. Local Docker default: `postgresql://inkdesk:inkdesk@localhost:5432/inkdesk?schema=public`. Render: Internal URL from `inkdesk-db` on both web services. External (laptop → Render): same URL + `sslmode=require`. `file:` SQLite URLs are rejected. |
 | `AUTH_SECRET` | Signs session cookies and encrypts parlor Stripe secrets. Use a long random value in production. Set this in the Dashboard (not in git). |
 | `NEXT_PUBLIC_APP_URL` | Public HTTPS origin (no trailing slash). Used for Stripe fallback URLs and server-action allowed origins. Render also sets `RENDER_EXTERNAL_URL`. Set this in the Dashboard. |
 | `APP_URL` | Optional server-only alias for the same origin. |
@@ -247,18 +335,30 @@ Uploaded files are not secrets, but they are shop-private. Do not commit `storag
 
 ```
 app/            App Router pages, shop Admin, platform console, images API, Stripe webhooks, visit beacon
-actions/        Server actions
-components/     Shell, forms, galleries, UI primitives
+actions/        Server actions (still Prisma)
+components/     Shell, forms, galleries, UI primitives (Lucide on Next only)
 lib/            Prisma, session, dates, shop/platform metrics, visit recording, Stripe per shop, image storage
 prisma/         Schema, PostgreSQL migrations, seed, fixture JPEGs/PNGs
+backend/       Django 5 + DRF API (Phase 1). Same Postgres. See parlor/models.py
 storage/        Local image disk (shops/ is gitignored)
 docker-compose.yml  Local Postgres 16
-render.yaml     Web + Render Postgres + upload disk
+render.yaml     Next + Django + Render Postgres + upload disk
 ```
+
+## Phase 2 (explicit — not this PR)
+
+Do not treat missing items as silent TODOs in the Phase 1 code. This is the follow-up list:
+
+1. **Move writes off Prisma** — clients, appointments, artists, session notes, users, onboarding, idempotency, payments, images. Next server actions become HTTP clients of Django (or are deleted).
+2. **Take schema ownership** — refresh inspectdb, set `managed = True`, ship Django migrations that match the live tables, stop `prisma migrate deploy` on the Next start command.
+3. **Retire Prisma** — remove `prisma/`, `@prisma/client`, and Next database access once every read/write path uses Django.
+4. **Django admin for platform** — operators manage `PlatformUser` and cross-shop inspect from Django admin (or a DRF platform API). Shop JWTs stay out.
+5. **Platform billing** — still later: SaaS invoices and Stripe Connect (destination charges / application fees). Per-shop key paste is not Connect. See **Platform billing — next**.
+6. **Wire Next to Django** — `DJANGO_API_URL` / CORS as described above. No UI rewrite required to start.
 
 ## Suggested next milestones
 
-1. **Platform billing — next** — SaaS invoices plus Stripe Connect (destination charges / application fees) so parlors do not paste `sk_live` material. Not started.
+1. **Platform billing — next** — SaaS invoices plus Stripe Connect (destination charges / application fees) so parlors do not paste `sk_live` material. Not started. Not part of the Django Phase 1 API.
 2. **Invite email** — send the temporary staff/admin password instead of showing it on screen.
 3. **Platform impersonation** — open a parlor as that shop’s owner from `/platform` (not in this release).
 4. **Online booking** — public page for consults and sessions against open artist hours, writing into the same appointment table.

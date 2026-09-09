@@ -40,6 +40,15 @@ yarn-error.log*
 *.db-journal
 prisma/dev.db
 
+# Django
+backend/.venv/
+backend/.env
+backend/staticfiles/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
 # parlor image uploads (local disk)
 /storage/shops/
 
