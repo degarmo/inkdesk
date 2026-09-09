@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE "Shop" ADD COLUMN "onboardingCompletedAt" DATETIME;
+ALTER TABLE "Shop" ADD COLUMN "onboardingCompletedAt" TIMESTAMP(3);
 ALTER TABLE "Shop" ADD COLUMN "onboardingStep" INTEGER NOT NULL DEFAULT 1;
 
 -- Existing parlors stay on the floor. Only shops created after this migration

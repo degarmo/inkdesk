@@ -1,0 +1,29 @@
+# Local PostgreSQL for Inkdesk development.
+# Production on Render uses the Blueprint database (inkdesk-db), not this file.
+#
+#   docker compose up -d
+#   cp .env.example .env   # DATABASE_URL already matches these credentials
+#   npx prisma migrate dev
+#   npm run db:seed        # destructive demo data — never against a live parlor
+#   npm run dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: inkdesk-postgres
+    environment:
+      POSTGRES_USER: inkdesk
+      POSTGRES_PASSWORD: inkdesk
+      POSTGRES_DB: inkdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - inkdesk_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inkdesk -d inkdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  inkdesk_pg:

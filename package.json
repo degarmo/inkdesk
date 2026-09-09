@@ -10,6 +10,8 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port ${PORT:-43147}",
     "lint": "eslint",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
