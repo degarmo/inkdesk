@@ -2,6 +2,7 @@
 
 import { hash, compare } from "bcryptjs";
 import { redirect } from "next/navigation";
+import { parlorEntryPath } from "@/lib/parlor-entry";
 import { prisma } from "@/lib/prisma";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session";
 import { safeLoginNext } from "@/lib/utils";
@@ -56,7 +57,7 @@ export async function signUp(_prev: ActionState, formData: FormData): Promise<Ac
     shopId: shop.id,
   });
 
-  redirect("/dashboard");
+  redirect("/onboarding");
 }
 
 export async function logIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -97,6 +98,10 @@ export async function logIn(_prev: ActionState, formData: FormData): Promise<Act
     shopId: user.shopId,
   });
 
+  const entry = await parlorEntryPath({ role: user.role, shopId: user.shopId });
+  if (entry === "/onboarding") {
+    redirect("/onboarding");
+  }
   redirect(safeLoginNext(formData.get("next")) ?? "/dashboard");
 }
 

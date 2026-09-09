@@ -14,17 +14,25 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 import { StatusBadge } from "@/components/status-badge";
 import { AppointmentPayActions } from "@/components/appointment-pay-actions";
+import { SetupChecklist } from "@/components/onboarding/setup-checklist";
 import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
-import { stripeConfigured } from "@/lib/stripe";
+import { buildSetupChecklist } from "@/lib/onboarding";
+import { shopHasOwnStripeKeys, stripeConfigured } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setup?: string }>;
+}) {
   const { shop, session } = await requireShop();
+  const { setup } = await searchParams;
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
 
-  const [todays, unpaid, recentClients, stats] = await Promise.all([
+  const [todays, unpaid, recentClients, stats, artistCount, extraUserCount, clientCount, appointmentCount] =
+    await Promise.all([
     prisma.appointment.findMany({
       where: { shopId: shop.id, startAt: { gte: start, lte: end } },
       include: { client: true, artist: true },
@@ -47,7 +55,26 @@ export default async function DashboardPage() {
       take: 6,
     }),
     shopAnalytics(shop.id),
+    prisma.artist.count({ where: { shopId: shop.id } }),
+    prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),
+    prisma.client.count({ where: { shopId: shop.id } }),
+    prisma.appointment.count({ where: { shopId: shop.id } }),
   ]);
+
+  const checklist = buildSetupChecklist({
+    artistCount,
+    extraUserCount,
+    hasStripeKeys: shopHasOwnStripeKeys(shop),
+    clientCount,
+    appointmentCount,
+  });
+  const leftoverCore = checklist.some(
+    (item) => !item.done && (item.id === "artist" || item.id === "team" || item.id === "client"),
+  );
+  const leftoverStripe = checklist.some((item) => item.id === "stripe" && !item.done);
+  const showChecklist =
+    isAdminRole(session.role) &&
+    (setup === "1" || leftoverCore || (leftoverStripe && appointmentCount === 0));
 
   const prep = await prepReadyIds(
     shop.id,
@@ -74,6 +101,14 @@ export default async function DashboardPage() {
           </>
         }
       />
+
+      {showChecklist ? (
+        <SetupChecklist
+          items={checklist}
+          title={setup === "1" ? "Setup saved — leftovers" : "Setup remaining"}
+          description="Owner and admin can re-open the full guide from Settings. Staff do not see this card."
+        />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
