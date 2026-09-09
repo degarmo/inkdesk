@@ -2,8 +2,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// PostgreSQL only. SQLite file: DATABASE_URL is not a supported deploy path.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -76,7 +77,7 @@ model Client {
   phone        String        @default("")
   email        String        @default("")
   notes        String        @default("")
-  tags         String        @default("[]")
+  tags         String        @default("[]") // JSON array as text (not Postgres json)
   lastVisit    DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
