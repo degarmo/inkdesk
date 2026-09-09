@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Figtree, Newsreader } from "next/font/google";
 import { VisitBeacon } from "@/components/visit-beacon";
+import "./globals.css";
 
 const sans = Figtree({
   variable: "--font-sans",
