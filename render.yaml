@@ -1,22 +1,39 @@
 # Inkdesk — Render Blueprint
 #
-# One web service. SQLite + parlor image uploads MUST live on a persistent disk;
-# the instance filesystem is wiped on every deploy.
+# Web service + Render Postgres. Parlor image uploads live on a persistent disk;
+# the instance filesystem is wiped on every deploy. The database is no longer a
+# SQLite file on that disk.
 #
-# Plan: starter (or larger). Persistent disks are not available on the free instance.
-# A disk also pins the service to a single instance (no autoscaling / no zero-downtime).
-# 1 GB is enough for beta SQLite + JPEG/PNG/WebP references. Raise sizeGB later if needed
-# (grow-only; shrinking is not supported).
+# Plan: starter (or larger) for the web service. Persistent disks are not
+# available on the free instance. A disk also pins the web service to a single
+# instance (no autoscaling / no zero-downtime). 1 GB is enough for JPEG/PNG/WebP
+# references. Raise sizeGB later if needed (grow-only; shrinking is not supported).
 #
-# Do not set NODE_ENV=production here — it would skip devDependencies (TypeScript, Prisma CLI)
-# during `npm ci`. Render sets NODE_ENV at runtime.
+# Postgres: basic-256mb (current Render type; not a legacy "starter" DB). Default
+# disk for that tier is 15 GB if you omit diskSizeGB; this Blueprint pins 1 GB.
+# Web and database must share a region (both omit region → Oregon).
 #
-# First-sync secrets (sync: false) are prompted in the Dashboard. Paste:
-#   DATABASE_URL          file:/var/data/inkdesk.db
+# Do not set NODE_ENV=production here — it would skip devDependencies (TypeScript,
+# Prisma CLI) during `npm ci`. Render sets NODE_ENV at runtime.
+#
+# DATABASE_URL is wired from the Postgres service (Internal Database URL). Do not
+# paste a file: SQLite path. First-sync secrets (sync: false) are prompted in the
+# Dashboard. Paste:
 #   AUTH_SECRET           output of: openssl rand -base64 32
 #   NEXT_PUBLIC_APP_URL   https://<this-service>.onrender.com   (no trailing slash)
 #
 # Do NOT add prisma db seed to startCommand — seed wipes shops, users, and storage/shops.
+#
+# Existing SQLite files left on /var/data (e.g. inkdesk.db from an earlier deploy)
+# are NOT imported. There is no automatic SQLite → Postgres data migration.
+
+databases:
+  - name: inkdesk-db
+    databaseName: inkdesk
+    user: inkdesk
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    diskSizeGB: 1
 
 services:
   - type: web
@@ -30,12 +47,14 @@ services:
       - key: NODE_VERSION
         value: "20"
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: inkdesk-db
+          property: connectionString
       - key: AUTH_SECRET
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
-      # Uploads on the persistent disk (same volume as SQLite).
+      # Uploads on the persistent disk (database is Render Postgres, not this volume).
       - key: STORAGE_ROOT
         value: /var/data/storage
       # Optional local-dev Stripe fallback only. Per-parlor keys live in the shop row
