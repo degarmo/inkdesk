@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLiveSession } from "@/lib/auth";
-import { parlorEntryPath } from "@/lib/onboarding";
+import { parlorEntryPath } from "@/lib/parlor-entry";
 import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {

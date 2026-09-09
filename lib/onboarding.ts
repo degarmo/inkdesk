@@ -1,6 +1,4 @@
 import { isAdminRole } from "@/lib/utils";
-import { shopHasOwnStripeKeys, type ShopStripeFields } from "@/lib/stripe";
-import { prisma } from "@/lib/prisma";
 
 export const ONBOARDING_STEP_COUNT = 6;
 
@@ -95,23 +93,8 @@ export function buildSetupChecklist(input: {
   ];
 }
 
-export function shopHasStripeKeys(shop: ShopStripeFields) {
-  return shopHasOwnStripeKeys(shop);
-}
-
 export function parseStepParam(raw: string | undefined) {
   if (!raw) return null;
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : null;
-}
-
-/** After signup / login / landing while a parlor session exists. */
-export async function parlorEntryPath(session: { role: string; shopId: string }) {
-  if (!isAdminRole(session.role)) return "/dashboard";
-  const shop = await prisma.shop.findUnique({
-    where: { id: session.shopId },
-    select: { onboardingCompletedAt: true },
-  });
-  if (shop && !shop.onboardingCompletedAt) return "/onboarding";
-  return "/dashboard";
 }

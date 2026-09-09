@@ -16,8 +16,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { AppointmentPayActions } from "@/components/appointment-pay-actions";
 import { SetupChecklist } from "@/components/onboarding/setup-checklist";
 import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
-import { buildSetupChecklist, shopHasStripeKeys } from "@/lib/onboarding";
-import { stripeConfigured } from "@/lib/stripe";
+import { buildSetupChecklist } from "@/lib/onboarding";
+import { shopHasOwnStripeKeys, stripeConfigured } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -64,7 +64,7 @@ export default async function DashboardPage({
   const checklist = buildSetupChecklist({
     artistCount,
     extraUserCount,
-    hasStripeKeys: shopHasStripeKeys(shop),
+    hasStripeKeys: shopHasOwnStripeKeys(shop),
     clientCount,
     appointmentCount,
   });

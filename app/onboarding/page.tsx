@@ -9,11 +9,10 @@ import { isAdminRole, requireShop } from "@/lib/auth";
 import {
   buildSetupChecklist,
   parseStepParam,
-  shopHasStripeKeys,
   viewOnboardingStep,
 } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
-import { requestOrigin } from "@/lib/stripe";
+import { requestOrigin, shopHasOwnStripeKeys } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Shop setup" };
 
@@ -55,7 +54,7 @@ export default async function OnboardingPage({
   const checklist = buildSetupChecklist({
     artistCount: artists.length,
     extraUserCount,
-    hasStripeKeys: shopHasStripeKeys(shop),
+    hasStripeKeys: shopHasOwnStripeKeys(shop),
     clientCount: clients.length,
     appointmentCount,
   });
@@ -99,7 +98,7 @@ export default async function OnboardingPage({
               timezone: shop.timezone,
               hoursOpen: shop.hoursOpen,
               hoursClose: shop.hoursClose,
-              hasStripeKeys: shopHasStripeKeys(shop),
+              hasStripeKeys: shopHasOwnStripeKeys(shop),
             }}
             ownerName={session.name}
             step={step}

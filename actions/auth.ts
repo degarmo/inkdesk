@@ -2,7 +2,7 @@
 
 import { hash, compare } from "bcryptjs";
 import { redirect } from "next/navigation";
-import { parlorEntryPath } from "@/lib/onboarding";
+import { parlorEntryPath } from "@/lib/parlor-entry";
 import { prisma } from "@/lib/prisma";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session";
 import { safeLoginNext } from "@/lib/utils";
