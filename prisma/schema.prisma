@@ -16,6 +16,8 @@ model Shop {
   stripePublishableKey String        @default("")
   stripeSecretKey      String        @default("")
   stripeWebhookSecret  String        @default("")
+  onboardingCompletedAt DateTime?
+  onboardingStep        Int           @default(1)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   users        User[]

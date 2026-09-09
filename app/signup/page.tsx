@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLiveSession } from "@/lib/auth";
+import { parlorEntryPath } from "@/lib/onboarding";
 import { SignupForm } from "@/components/forms/auth-forms";
 
 export const metadata: Metadata = { title: "Create a shop" };
 
 export default async function SignupPage() {
-  if (await getLiveSession()) {
-    redirect("/dashboard");
+  const session = await getLiveSession();
+  if (session) {
+    redirect(await parlorEntryPath(session));
   }
 
   return (
@@ -19,7 +21,8 @@ export default async function SignupPage() {
         </Link>
         <h1 className="mt-4 font-serif text-3xl text-ink">Open a shop</h1>
         <p className="mt-2 text-sm leading-6 text-muted">
-          One account, one shop. Invite extra users later — v1 keeps the counter simple.
+          One account, one shop. After you create it, a short setup guide walks through hours, artists,
+          and optional team or Stripe keys.
         </p>
         <div className="mt-6">
           <SignupForm />

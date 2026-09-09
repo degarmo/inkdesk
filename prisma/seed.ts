@@ -80,6 +80,8 @@ async function main() {
       timezone: TZ,
       hoursOpen: "11:00",
       hoursClose: "20:00",
+      onboardingCompletedAt: new Date(),
+      onboardingStep: 6,
     },
   });
 
@@ -513,6 +515,8 @@ async function main() {
       timezone: harborTz,
       hoursOpen: "12:00",
       hoursClose: "21:00",
+      onboardingCompletedAt: new Date(),
+      onboardingStep: 6,
     },
   });
   await prisma.user.create({
@@ -650,6 +654,8 @@ async function main() {
       hoursOpen: "10:00",
       hoursClose: "18:00",
       createdAt: atIn(quietTz, -80, "10:00"),
+      onboardingCompletedAt: atIn(quietTz, -80, "10:00"),
+      onboardingStep: 6,
     },
   });
   await prisma.user.create({
@@ -698,6 +704,37 @@ async function main() {
     },
   });
 
+  const draft = await prisma.shop.create({
+    data: {
+      name: "Draft Parlor",
+      timezone: "America/Denver",
+      hoursOpen: "12:00",
+      hoursClose: "20:00",
+      onboardingStep: 1,
+    },
+  });
+  await prisma.user.create({
+    data: {
+      email: "setup@draft.ink",
+      name: "Riley Draft",
+      passwordHash: await hash("parlor-setup", 12),
+      shopId: draft.id,
+      role: "owner",
+      active: true,
+      lastSeenAt: new Date(),
+    },
+  });
+  await prisma.user.create({
+    data: {
+      email: "staff@draft.ink",
+      name: "Quinn Floor",
+      passwordHash: await hash("parlor-setup-staff", 12),
+      shopId: draft.id,
+      role: "staff",
+      active: true,
+    },
+  });
+
   await prisma.platformUser.create({
     data: {
       email: "platform@inkdesk.app",
@@ -714,6 +751,8 @@ async function main() {
   console.log("  Blackbird admin:  admin@blackbird.ink / parlor-admin");
   console.log("  Blackbird staff:  artist@blackbird.ink / parlor-staff");
   console.log("  Harbor owner:     owner@harborneedle.ink / parlor-harbor");
+  console.log("  Draft parlor:     setup@draft.ink / parlor-setup  (onboarding incomplete)");
+  console.log("  Draft staff:      staff@draft.ink / parlor-setup-staff  (skips onboarding gate)");
   console.log("  Platform:         platform@inkdesk.app / platform-admin");
 }
 

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLiveSession } from "@/lib/auth";
+import { parlorEntryPath } from "@/lib/onboarding";
 import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {
   const session = await getLiveSession();
   if (session) {
-    redirect("/dashboard");
+    redirect(await parlorEntryPath(session));
   }
 
   return (

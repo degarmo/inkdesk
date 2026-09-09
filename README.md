@@ -7,6 +7,7 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 **In this trial**
 
 - Email/password sign-up and login. Multi-tenant by shop (one shop per account).
+- **Parlor onboarding (`/onboarding`):** after signup (or first login while the shop is incomplete), owner and admin must finish or explicitly skip the setup guide before the dashboard. Steps: shop profile, first artist, optional team invite, optional payments, optional first client, done. Staff skip the gate. Re-open from Settings → Setup guide.
 - Roles: `owner`, `admin`, `staff`. Existing accounts migrate to `owner`. `/admin` is owner+admin only.
 - Clients: create, list, search, tags, notes, last visit.
 - Artists: name, specialty, active / inactive.
@@ -15,15 +16,21 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Soft-delete hides them from galleries.
 - Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge, revenue / deposit / upcoming-week cards.
 - **Analytics (`/analytics`):** parlor-scoped revenue (all / 7 / 30d), unpaid deposits, per-artist bookings and collected vs estimated (deposit book), booking mix, new clients, deposit collection rate, upcoming week, top services. All shop roles. Never includes another parlor.
-- Settings: shop name, timezone, business hours reminder.
+- Settings: shop name, timezone, business hours reminder. Owner/admin can re-open the setup guide.
 - **Admin (`/admin`):** parlor owners and admins — users, parlor settings, appointment oversight, payment history for **that shop**.
 - **Platform (`/platform`):** Inkdesk operators over **all shops**. Separate `PlatformUser` table and cookie. Shop logins cannot open it. Metrics include shops, active shops, signups, conversion (shops with ≥1 booking), churn proxy (no login 30d), GMV, bookings, clients, and first-party visits (7/30d, rough sessions, top paths).
 - **First-party visits:** layout beacon `POST /api/visits` writes `PageView` rows (path, optional shopId, visitor cookie, surface). No Google Analytics.
 - **Stripe (per parlor):** save `stripePublishableKey`, `stripeSecretKey`, and `stripeWebhookSecret` on the shop. Checkout and API calls use **that shop’s secret key**. Pay deposit / pay balance open Checkout. `checkout.session.completed` marks the payment succeeded and, for deposits, sets `appointment.depositPaid`.
 
+## Platform billing — next
+
+Not in this release. Inkdesk does **not** take a platform cut, does **not** onboard parlors through Stripe Connect, and does **not** charge a SaaS subscription from this app.
+
+Each parlor pastes its own Stripe keys for client deposits (or skips and takes cash). Platform subscription billing, Connect destination charges, and application fees are the next billing milestone — do not treat per-shop key paste as Connect.
+
 **Out of scope for v1**
 
-- Stripe Connect (platform charges / destination charges). Next step if parlors should onboard without pasting keys.
+- Stripe Connect (platform charges / destination charges). Next step if parlors should onboard without pasting keys. See **Platform billing — next**.
 - **Acting as a parlor from `/platform` (impersonation).** Operators get a read-only snapshot.
 - SMS reminders.
 - **Public booking page.** Landing / login / signup are tracked as page views, but there is still no client-facing booker.
@@ -31,6 +38,7 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - Visit tracking does not filter bots and does not identify people — unique counts are `inkdesk_vid` cookies.
 - Inventory, retail, or payroll.
 - Client self-upload, HEIC conversion, image editing, or S3.
+- **Invite email.** Onboarding can create a staff/admin login and shows a temporary password on screen. Nothing is emailed.
 
 ## Roles
 
@@ -63,6 +71,7 @@ Optional `.env` keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
 - SQLite on a laptop, or SQLite on a Render persistent disk, is enough for a small real-user trial. Switch to Postgres before more than one instance or heavier write load.
 - Auth is a signed, httpOnly session cookie (JWT via `jose` + `bcryptjs` passwords). No third-party auth provider. Live role and `active` come from the database on each request.
 - Re-seeding recreates the shop, which invalidates existing session cookies. Inkdesk expires those cookies and sends you to `/login` instead of looping.
+- `Shop.onboardingCompletedAt` is null until an owner/admin finishes or skip-to-end on `/onboarding`. The migration backfills existing shops as already complete so live parlors are not locked into the wizard. `onboardingStep` (1–6) is the resume point.
 - Session notes require at least one of: design notes, placement, or ink/colors.
 - Creates (client, appointment, session note) send an idempotency key so a double-submit does not insert two rows.
 - Images live on local disk under `storage/shops/{shopId}/clients/{clientId}/` (gitignored). Serve them only through authenticated `GET /api/images/[id]`. Soft-deleted rows stay in the database with `deletedAt` set and are hidden from galleries. HEIC is rejected with an error; export JPEG/PNG/WebP instead. Caps: 10 MB per file, about 50 images per client and 20 per booking.
@@ -102,6 +111,13 @@ Seed includes two artists, eight clients, a week of bookings (including a cancel
 
 **Quiet parlor — Ash & Ivy** exists so platform metrics can show a shop with no login or booking in 30 days (`ivy@ashandivy.ink` / `parlor-quiet`).
 
+**Onboarding test parlor — Draft Parlor** is seeded *incomplete* (`onboardingCompletedAt` is null) so you can walk the wizard without signing up. Staff on this shop skip the gate and land on the empty dashboard.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Owner | `setup@draft.ink` | `parlor-setup` |
+| Staff | `staff@draft.ink` | `parlor-setup-staff` |
+
 **Platform operator** (all shops, not a parlor login)
 
 | | Email | Password |
@@ -123,7 +139,7 @@ Scripts:
 | `npm run dev` | Next.js on port 43147 |
 | `npm run db:migrate` | Create / apply Prisma migrations (dev) |
 | `npm run db:migrate:deploy` | Apply migrations without prompting (`prisma migrate deploy`) |
-| `npm run db:seed` | Reset demo data (three shops + platform operator + page views). Existing demo JWTs are expired on next request. Writes sample images under `storage/` (or `STORAGE_ROOT`). **Destructive — do not run against a live parlor.** |
+| `npm run db:seed` | Reset demo data (four shops + platform operator + page views). Blackbird, Harbor, and Ash & Ivy are already onboarded. Draft Parlor is left incomplete for the setup wizard. Existing demo JWTs are expired on next request. Writes sample images under `storage/` (or `STORAGE_ROOT`). **Destructive — do not run against a live parlor.** |
 | `npm run build` / `npm start` | Production build. `start` binds `0.0.0.0` and uses `PORT` (default 43147). |
 
 ## Deploy on Render
@@ -170,6 +186,7 @@ Admin → Parlor settings shows the preferred URL for the logged-in shop.
 | Blackbird admin | `admin@blackbird.ink` | `parlor-admin` |
 | Blackbird staff | `artist@blackbird.ink` | `parlor-staff` |
 | Harbor owner | `owner@harborneedle.ink` | `parlor-harbor` |
+| Draft parlor (wizard) | `setup@draft.ink` | `parlor-setup` |
 | Platform | `platform@inkdesk.app` | `platform-admin` |
 
 Instance: **Starter**. Free Render web services cannot attach a disk; do not use Free for this app.
@@ -230,9 +247,10 @@ storage/        Local image disk (shops/ is gitignored)
 
 ## Suggested next milestones
 
-1. **Stripe Connect** — onboard parlors without pasting secret keys; destination charges instead of stored `sk_live` material.
-2. **Platform impersonation** — open a parlor as that shop’s owner from `/platform` (not in this release).
-3. **Online booking** — public page for consults and sessions against open artist hours, writing into the same appointment table.
-4. **Consent forms** — age, aftercare, and release signed on a tablet before the machine starts.
-5. **SMS** — next-day reminders and “your deposit is still open” texts.
-6. **Object storage** — move parlor images off the laptop disk to S3 (or similar) when more than one machine needs the files.
+1. **Platform billing — next** — SaaS invoices plus Stripe Connect (destination charges / application fees) so parlors do not paste `sk_live` material. Not started.
+2. **Invite email** — send the temporary staff/admin password instead of showing it on screen.
+3. **Platform impersonation** — open a parlor as that shop’s owner from `/platform` (not in this release).
+4. **Online booking** — public page for consults and sessions against open artist hours, writing into the same appointment table.
+5. **Consent forms** — age, aftercare, and release signed on a tablet before the machine starts.
+6. **SMS** — next-day reminders and “your deposit is still open” texts.
+7. **Object storage** — move parlor images off the laptop disk to S3 (or similar) when more than one machine needs the files.

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { ListChecks } from "lucide-react";
+import { reopenOnboarding } from "@/actions/onboarding";
 import { requireAdmin } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
 import { StripeSettingsForm } from "@/components/forms/stripe-settings-form";
 import { FlashNotice } from "@/components/flash-notice";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { decryptSecret, maskSecret } from "@/lib/secrets";
 import { requestOrigin, shopStripeCredentials, stripeConfigured } from "@/lib/stripe";
@@ -28,6 +31,27 @@ export default async function AdminSettingsPage({
         title="Parlor settings"
         description="Identity for the floor, plus this shop’s own Stripe account. There is no shared Tally Two processor."
       />
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Setup guide</CardTitle>
+            <CardDescription>
+              {shop.onboardingCompletedAt
+                ? "Re-open the parlor onboarding walkthrough."
+                : "Keys saved here apply immediately. Return to the guide to continue or skip remaining steps."}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form action={reopenOnboarding}>
+            <Button type="submit" variant="outline">
+              <ListChecks className="h-4 w-4" />
+              Setup guide
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

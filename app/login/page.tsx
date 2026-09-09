@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLiveSession } from "@/lib/auth";
+import { parlorEntryPath } from "@/lib/onboarding";
 import { LoginForm } from "@/components/forms/auth-forms";
 import { safeLoginNext } from "@/lib/utils";
 
@@ -13,8 +14,10 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const next = safeLoginNext((await searchParams).next);
-  if (await getLiveSession()) {
-    redirect(next ?? "/dashboard");
+  const session = await getLiveSession();
+  if (session) {
+    const entry = await parlorEntryPath(session);
+    redirect(entry === "/onboarding" ? "/onboarding" : (next ?? "/dashboard"));
   }
 
   return (
