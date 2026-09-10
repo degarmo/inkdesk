@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
+import { Download, Maximize2 } from "lucide-react";
 import { softDeleteImage, updateImageMeta } from "@/actions/images";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
@@ -8,15 +10,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { IMAGE_KINDS } from "@/lib/constants";
-import { imageKindLabel } from "@/lib/utils";
+import { imageKindLabel, publicImagePath } from "@/lib/utils";
 import { useOnceSubmit } from "@/lib/use-once-submit";
-import type { ImageRecord } from "@/lib/images";
+import type { ImageRecord } from "@/lib/image-types";
 
-export function ImageCard({ image, redirectTo }: { image: ImageRecord; redirectTo: string }) {
+export function ImageCard({
+  image,
+  redirectTo,
+  savedAt,
+  showBookingLink,
+}: {
+  image: ImageRecord;
+  redirectTo: string;
+  savedAt?: string;
+  showBookingLink?: boolean;
+}) {
   const [metaState, metaAction, metaPending] = useActionState(updateImageMeta, null);
   const [deleteState, deleteAction, deletePending] = useActionState(softDeleteImage, null);
   const metaOnce = useOnceSubmit();
   const deleteOnce = useOnceSubmit();
+  const [missing, setMissing] = useState(false);
+  const reviewHref = publicImagePath(image.id);
+  const downloadHref = publicImagePath(image.id, true);
 
   useEffect(() => {
     if (metaState?.error) metaOnce.unlock();
@@ -28,18 +43,50 @@ export function ImageCard({ image, redirectTo }: { image: ImageRecord; redirectT
   return (
     <li className="grid gap-3 rounded-lg border border-line bg-paper/60 p-3">
       <div className="overflow-hidden rounded-md border border-line bg-surface">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/api/images/${image.id}`}
-          alt={image.caption || imageKindLabel(image.kind)}
-          className="aspect-[3/2] w-full object-cover"
-        />
+        {missing ? (
+          <div className="flex aspect-[3/2] items-center justify-center px-4 text-center text-sm text-muted">
+            Photo file is missing from parlor storage.
+          </div>
+        ) : (
+          <a href={reviewHref} target="_blank" rel="noreferrer" className="block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={reviewHref}
+              alt={image.caption || imageKindLabel(image.kind)}
+              className="aspect-[3/2] w-full object-cover"
+              onError={() => setMissing(true)}
+            />
+          </a>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge>{imageKindLabel(image.kind)}</Badge>
         {image.prepForVisit ? <Badge tone="olive">Prep</Badge> : null}
+        {savedAt ? <span className="text-xs text-muted">{savedAt}</span> : null}
       </div>
       {image.caption ? <p className="text-sm text-ink">{image.caption}</p> : null}
+      {showBookingLink && image.appointmentId ? (
+        <p className="text-xs text-muted">
+          Saved on a booking.{" "}
+          <Link href={`/appointments/${image.appointmentId}`} className="text-ink underline underline-offset-4">
+            Open appointment
+          </Link>
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline">
+          <a href={reviewHref} target="_blank" rel="noreferrer">
+            <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+            Review
+          </a>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <a href={downloadHref}>
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            Download
+          </a>
+        </Button>
+      </div>
       <FormMessage error={metaState?.error || deleteState?.error} />
       <form action={metaAction} className="grid gap-2" onSubmit={metaOnce.onSubmit}>
         <input type="hidden" name="imageId" value={image.id} />

@@ -7,7 +7,7 @@ import { FormMessage } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { imageKindLabel } from "@/lib/utils";
 import { useOnceSubmit } from "@/lib/use-once-submit";
-import type { ImageRecord } from "@/lib/images";
+import type { ImageRecord } from "@/lib/image-types";
 
 export function ImageLibraryPicker({
   appointmentId,

@@ -8,6 +8,7 @@ import {
   assertClientCap,
   listAppointmentImages as listAppointmentImagesForShop,
   listClientImages as listClientImagesForShop,
+  readFormUpload,
   storageKeyFor,
   validateUploadBytes,
   writeShopImage,
@@ -77,38 +78,50 @@ export async function uploadClientImage(_prev: ActionState, formData: FormData):
   const clientCap = await assertClientCap(session.shopId, clientId);
   if (clientCap) return { error: clientCap };
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Choose a JPEG, PNG, or WebP image." };
+  const uploaded = await readFormUpload(formData.get("file"));
+  if ("error" in uploaded) {
+    return { error: uploaded.error };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const checked = validateUploadBytes(buffer, file.type);
+  const checked = validateUploadBytes(uploaded.bytes, uploaded.type);
   if ("error" in checked) {
     return { error: checked.error };
   }
 
   const id = crypto.randomUUID();
   const storageKey = storageKeyFor(session.shopId, clientId, id, checked.ext);
-  await writeShopImage(storageKey, checked.bytes);
+  try {
+    await writeShopImage(storageKey, checked.bytes);
+  } catch {
+    return {
+      error:
+        "Could not save the photo file. Try again. If this keeps happening, parlor storage may be missing, unwritable, or full.",
+    };
+  }
 
-  await prisma.clientImage.create({
-    data: {
-      id,
-      shopId: session.shopId,
-      clientId,
-      appointmentId,
-      kind: parsed.data.kind,
-      prepForVisit: parsed.data.prepForVisit,
-      caption: parsed.data.caption,
-      storageKey,
-      mimeType: checked.mime,
-      byteSize: checked.bytes.length,
-      width: checked.width,
-      height: checked.height,
-      uploadedById: session.id,
-    },
-  });
+  try {
+    await prisma.clientImage.create({
+      data: {
+        id,
+        shopId: session.shopId,
+        clientId,
+        appointmentId,
+        kind: parsed.data.kind,
+        prepForVisit: parsed.data.prepForVisit,
+        caption: parsed.data.caption,
+        storageKey,
+        mimeType: checked.mime,
+        byteSize: checked.bytes.length,
+        width: checked.width,
+        height: checked.height,
+        uploadedById: session.id,
+      },
+    });
+  } catch {
+    return {
+      error: "The photo file was written but the parlor record could not be saved. Try again.",
+    };
+  }
 
   revalidateImagePaths(clientId, appointmentId);
   redirectTo(formData, appointmentId ? `/appointments/${appointmentId}` : `/clients/${clientId}`);

@@ -22,6 +22,7 @@ const actionOrigins = serverActionOrigins();
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
+      // Must exceed IMAGE_MAX_BYTES (10 MB) plus multipart headers.
       bodySizeLimit: "12mb",
       ...(actionOrigins.length ? { allowedOrigins: actionOrigins } : {}),
     },

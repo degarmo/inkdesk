@@ -78,8 +78,10 @@ export default async function ClientDetailPage({
           <ImageGallery
             images={client.images}
             redirectTo={`/clients/${client.id}`}
+            timezone={shop.timezone}
+            showBookingLink
             emptyTitle="No references yet"
-            emptyBody="Upload a JPEG, PNG, or WebP so the chair has the design on the screen when they sit down."
+            emptyBody="Upload a JPEG, PNG, or WebP so the chair has the design on the screen when they sit down. Photos added on a booking also show here."
           />
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port ${PORT:-43147}",
     "lint": "eslint",
+    "test": "tsx --test lib/*.test.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",

@@ -196,6 +196,10 @@ export default async function AppointmentDetailPage({
         </CardHeader>
         <CardContent className="grid gap-6">
           <FlashNotice saved={flash.image} message="Prep art updated." />
+          <p className="text-sm text-muted">
+            Photos added here are saved on this booking and the client card. Review the full image or
+            download it when it is time to start the tattoo.
+          </p>
           <ImageUploadForm
             clientId={appointment.clientId}
             appointmentId={appointment.id}
@@ -204,6 +208,7 @@ export default async function AppointmentDetailPage({
           <ImageGallery
             images={appointment.images}
             redirectTo={`/appointments/${appointment.id}`}
+            timezone={shop.timezone}
             emptyTitle="Nothing staged for this booking"
             emptyBody="Upload a reference or attach one from the client card so the stencil is ready at the chair."
           />
