@@ -149,93 +149,90 @@ export default async function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Per artist</CardTitle>
-              <CardDescription>
-                Gross = succeeded payments on that artist’s appointments. Usage fee is taken out of that gross for
-                parlor space and products ({formatUsageFeePercent(usageFeePercent)}) — not Inkdesk billing. Net is what
-                remains for the artist. Estimated = deposit amounts on those bookings (same split; not remaining
-                balance).
-                {isStaff ? " Staff see only their own row." : ""}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {artistRows.length === 0 ? (
-              <EmptyState
-                title={isStaff ? "No earnings row" : "No artists"}
-                body={
-                  isStaff
-                    ? "This login is not tied to a roster artist yet."
-                    : "Add an artist on the roster to attribute chairs."
-                }
-              />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[40rem] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                      <th className="py-2 pr-3 font-medium">Artist</th>
-                      <th className="py-2 pr-3 font-medium">Bookings</th>
-                      <th className="py-2 pr-3 font-medium">Completed</th>
-                      <th className="py-2 pr-3 font-medium">Estimated</th>
-                      <th className="py-2 pr-3 font-medium">Gross</th>
-                      <th className="py-2 pr-3 font-medium">Usage fee taken</th>
-                      <th className="py-2 font-medium">Net to artist</th>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Per artist</CardTitle>
+            <CardDescription>
+              Gross = succeeded payments on that artist’s appointments. Usage fee is taken out of that gross for parlor
+              space and products ({formatUsageFeePercent(usageFeePercent)}) — not Inkdesk billing. Net is what remains
+              for the artist. Estimated = deposit amounts on those bookings (same split; not remaining balance).
+              {isStaff ? " Staff see only their own row." : ""}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {artistRows.length === 0 ? (
+            <EmptyState
+              title={isStaff ? "No earnings row" : "No artists"}
+              body={
+                isStaff
+                  ? "This login is not tied to a roster artist yet."
+                  : "Add an artist on the roster to attribute chairs."
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                    <th className="py-2 pr-3 font-medium">Artist</th>
+                    <th className="py-2 pr-3 font-medium">Bookings</th>
+                    <th className="py-2 pr-3 font-medium">Completed</th>
+                    <th className="py-2 pr-3 font-medium">Estimated</th>
+                    <th className="py-2 pr-3 font-medium">Gross</th>
+                    <th className="py-2 pr-3 font-medium">Usage fee taken</th>
+                    <th className="py-2 font-medium">Net to artist</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {artistRows.map((row) => (
+                    <tr key={row.id} className="border-b border-line last:border-0">
+                      <td className="py-3 pr-3">
+                        <p className="font-medium text-ink">{row.name}</p>
+                        <p className="text-xs text-muted">
+                          {row.specialty || "No specialty"}
+                          {row.active ? "" : " · inactive"}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3">{row.bookings}</td>
+                      <td className="py-3 pr-3">{row.completed}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.estimatedCents)}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.collectedCents)}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.shopTakeCents)}</td>
+                      <td className="py-3">{formatMoney(row.artistShareCents)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {artistRows.map((row) => (
-                      <tr key={row.id} className="border-b border-line last:border-0">
-                        <td className="py-3 pr-3">
-                          <p className="font-medium text-ink">{row.name}</p>
-                          <p className="text-xs text-muted">
-                            {row.specialty || "No specialty"}
-                            {row.active ? "" : " · inactive"}
-                          </p>
-                        </td>
-                        <td className="py-3 pr-3">{row.bookings}</td>
-                        <td className="py-3 pr-3">{row.completed}</td>
-                        <td className="py-3 pr-3">{formatMoney(row.estimatedCents)}</td>
-                        <td className="py-3 pr-3">{formatMoney(row.collectedCents)}</td>
-                        <td className="py-3 pr-3">{formatMoney(row.shopTakeCents)}</td>
-                        <td className="py-3">{formatMoney(row.artistShareCents)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Top services</CardTitle>
-              <CardDescription>Consult, tattoo session, and touch-up counts on this parlor.</CardDescription>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {stats.topServices.length === 0 ? (
-              <p className="text-sm text-muted">No bookings yet.</p>
-            ) : (
-              stats.topServices.map((row) => (
-                <RatioBar
-                  key={row.value}
-                  label={serviceLabel(row.value)}
-                  value={row.count}
-                  max={serviceMax}
-                  right={`${row.count}`}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Top services</CardTitle>
+            <CardDescription>Consult, tattoo session, and touch-up counts on this parlor.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {stats.topServices.length === 0 ? (
+            <p className="text-sm text-muted">No bookings yet.</p>
+          ) : (
+            stats.topServices.map((row) => (
+              <RatioBar
+                key={row.value}
+                label={serviceLabel(row.value)}
+                value={row.count}
+                max={serviceMax}
+                right={`${row.count}`}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
