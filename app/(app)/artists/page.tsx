@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { ArtistForm } from "@/components/forms/artist-form";
 import { FlashNotice } from "@/components/flash-notice";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 
@@ -18,11 +18,23 @@ export default async function ArtistsPage({
   const { shop, session } = await requireShop();
   const { saved } = await searchParams;
   const canManage = isAdminRole(session.role);
-  const artists = await prisma.artist.findMany({
-    where: { shopId: shop.id },
-    include: { _count: { select: { appointments: true } } },
-    orderBy: [{ active: "desc" }, { name: "asc" }],
-  });
+  const [artists, users] = await Promise.all([
+    prisma.artist.findMany({
+      where: { shopId: shop.id },
+      include: {
+        _count: { select: { appointments: true } },
+        user: { select: { email: true, role: true, name: true } },
+      },
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+    }),
+    canManage
+      ? prisma.user.findMany({
+          where: { shopId: shop.id },
+          select: { name: true, email: true, role: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="grid gap-6">
@@ -30,7 +42,7 @@ export default async function ArtistsPage({
         title="Artists"
         description={
           canManage
-            ? "Who is on the floor, what they do, and whether they are taking work."
+            ? "Who is on the floor, what they do, and whether they are taking work. You can also create a shop login here so the artist can sign in at /login."
             : "Who is on the floor. Owners and admins add names to the roster."
         }
       />
@@ -40,10 +52,15 @@ export default async function ArtistsPage({
       {canManage ? (
         <Card className="max-w-3xl">
           <CardHeader>
-            <CardTitle>Add to the roster</CardTitle>
+            <div>
+              <CardTitle>Add to the roster</CardTitle>
+              <CardDescription className="mt-1">
+                Roster name is for the calendar. Login email is the account they type at /login.
+              </CardDescription>
+            </div>
           </CardHeader>
           <CardContent>
-            <ArtistForm />
+            <ArtistForm canCreateLogin />
           </CardContent>
         </Card>
       ) : null}
@@ -59,33 +76,45 @@ export default async function ArtistsPage({
         />
       ) : (
         <div className="grid gap-4">
-          {artists.map((artist) => (
-            <Card key={artist.id}>
-              <CardHeader>
-                <div>
-                  <CardTitle>{artist.name}</CardTitle>
-                  <p className="mt-1 text-sm text-muted">
-                    {artist.specialty || "No specialty listed"} · {artist._count.appointments} bookings
-                  </p>
-                </div>
-                <Badge tone={artist.active ? "olive" : "muted"}>
-                  {artist.active ? "Active" : "Inactive"}
-                </Badge>
-              </CardHeader>
-              {canManage ? (
-                <CardContent>
-                  <ArtistForm
-                    artistId={artist.id}
-                    defaultValues={{
-                      name: artist.name,
-                      specialty: artist.specialty,
-                      active: artist.active,
-                    }}
-                  />
-                </CardContent>
-              ) : null}
-            </Card>
-          ))}
+          {artists.map((artist) => {
+            const matchingLogins = users.filter(
+              (user) =>
+                user.email === artist.user?.email ||
+                user.name.trim().toLowerCase() === artist.name.trim().toLowerCase(),
+            );
+            return (
+              <Card key={artist.id}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{artist.name}</CardTitle>
+                    <p className="mt-1 text-sm text-muted">
+                      {artist.specialty || "No specialty listed"} · {artist._count.appointments} bookings
+                    </p>
+                  </div>
+                  <Badge tone={artist.active ? "olive" : "muted"}>
+                    {artist.active ? "Active" : "Inactive"}
+                  </Badge>
+                </CardHeader>
+                {canManage ? (
+                  <CardContent>
+                    <ArtistForm
+                      artistId={artist.id}
+                      canCreateLogin
+                      matchingLogins={matchingLogins.map((user) => ({
+                        email: user.email,
+                        role: user.role,
+                      }))}
+                      defaultValues={{
+                        name: artist.name,
+                        specialty: artist.specialty,
+                        active: artist.active,
+                      }}
+                    />
+                  </CardContent>
+                ) : null}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

@@ -71,7 +71,7 @@ export default async function AppointmentDetailPage({
         actions={
           <>
             <Button asChild variant="outline">
-              <Link href="/appointments">Calendar</Link>
+              <Link href="/appointments">Appointments</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href={`/clients/${appointment.clientId}`}>Client card</Link>

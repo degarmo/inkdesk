@@ -1,10 +1,10 @@
 "use server";
 
-import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createShopUserRecord } from "@/lib/shop-users";
 import { shopUserRoleSchema, shopUserSchema, type ActionState } from "@/lib/validations";
 
 function revalidateUsers() {
@@ -28,22 +28,16 @@ export async function createShopUser(_prev: ActionState, formData: FormData): Pr
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
 
-  const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return { error: "An account with that email already exists." };
-  }
-
-  await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email,
-      passwordHash: await hash(parsed.data.password, 12),
-      role: parsed.data.role,
-      active: true,
-      shopId: session.shopId,
-    },
+  const created = await createShopUserRecord({
+    shopId: session.shopId,
+    name: parsed.data.name,
+    email: parsed.data.email,
+    password: parsed.data.password,
+    role: parsed.data.role,
   });
+  if ("error" in created) {
+    return { error: created.error };
+  }
 
   revalidateUsers();
   redirect("/admin/users?saved=1");
