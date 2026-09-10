@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireShop } from "@/lib/auth";
+import { isAdminRole, requireShop } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
 import { ArtistForm } from "@/components/forms/artist-form";
@@ -15,8 +15,9 @@ export default async function ArtistsPage({
 }: {
   searchParams: Promise<{ saved?: string }>;
 }) {
-  const { shop } = await requireShop();
+  const { shop, session } = await requireShop();
   const { saved } = await searchParams;
+  const canManage = isAdminRole(session.role);
   const artists = await prisma.artist.findMany({
     where: { shopId: shop.id },
     include: { _count: { select: { appointments: true } } },
@@ -27,24 +28,34 @@ export default async function ArtistsPage({
     <div className="grid gap-6">
       <PageHeader
         title="Artists"
-        description="Who is on the floor, what they do, and whether they are taking work."
+        description={
+          canManage
+            ? "Who is on the floor, what they do, and whether they are taking work."
+            : "Who is on the floor. Owners and admins add names to the roster."
+        }
       />
 
-      <FlashNotice saved={saved} message="Artist roster saved." />
+      {canManage ? <FlashNotice saved={saved} message="Artist roster saved." /> : null}
 
-      <Card className="max-w-3xl">
-        <CardHeader>
-          <CardTitle>Add to the roster</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ArtistForm />
-        </CardContent>
-      </Card>
+      {canManage ? (
+        <Card className="max-w-3xl">
+          <CardHeader>
+            <CardTitle>Add to the roster</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ArtistForm />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {artists.length === 0 ? (
         <EmptyState
           title="No artists yet"
-          body="Add the people who hold the machines so you can put names on the calendar."
+          body={
+            canManage
+              ? "Add the people who hold the machines so you can put names on the calendar."
+              : "The roster is empty. Ask an owner or admin to add chairs."
+          }
         />
       ) : (
         <div className="grid gap-4">
@@ -61,16 +72,18 @@ export default async function ArtistsPage({
                   {artist.active ? "Active" : "Inactive"}
                 </Badge>
               </CardHeader>
-              <CardContent>
-                <ArtistForm
-                  artistId={artist.id}
-                  defaultValues={{
-                    name: artist.name,
-                    specialty: artist.specialty,
-                    active: artist.active,
-                  }}
-                />
-              </CardContent>
+              {canManage ? (
+                <CardContent>
+                  <ArtistForm
+                    artistId={artist.id}
+                    defaultValues={{
+                      name: artist.name,
+                      specialty: artist.specialty,
+                      active: artist.active,
+                    }}
+                  />
+                </CardContent>
+              ) : null}
             </Card>
           ))}
         </div>

@@ -144,7 +144,8 @@ export default async function AdminOverviewPage() {
               <span className="text-ink">Admin</span> — same Admin tools; cannot deactivate the last owner.
             </li>
             <li>
-              <span className="text-ink">Staff</span> — clients, artists, appointments, notes, and images only.
+              <span className="text-ink">Staff</span> — clients, appointments, notes, and images. Own chair
+              earnings only (day / week / month / year). No shop GMV, no Settings, no adding artists, no /admin.
             </li>
           </ul>
         </CardContent>

@@ -1,6 +1,7 @@
 import { addDays, subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from "@/lib/constants";
+import { calendarPeriodStarts, type CalendarPeriod } from "@/lib/dates";
 
 const OPEN_DEPOSIT_STATUSES = ["scheduled", "completed"];
 
@@ -161,5 +162,66 @@ export async function shopAnalytics(shopId: string) {
     depositRate,
     artistRows,
     topServices,
+  };
+}
+
+export type EarningsWindows = {
+  dayCents: number;
+  dayCount: number;
+  weekCents: number;
+  weekCount: number;
+  monthCents: number;
+  monthCount: number;
+  yearCents: number;
+  yearCount: number;
+};
+
+export const EMPTY_EARNINGS: EarningsWindows = {
+  dayCents: 0,
+  dayCount: 0,
+  weekCents: 0,
+  weekCount: 0,
+  monthCents: 0,
+  monthCount: 0,
+  yearCents: 0,
+  yearCount: 0,
+};
+
+/**
+ * Succeeded Checkout on this artist’s appointments in this parlor only.
+ * Unlinked payments (no appointment) stay shop GMV and never appear here.
+ */
+export async function artistEarningsWindows(
+  shopId: string,
+  artistId: string,
+  timeZone: string,
+  now = new Date(),
+): Promise<EarningsWindows> {
+  const starts = calendarPeriodStarts(now, timeZone);
+  const periods: CalendarPeriod[] = ["day", "week", "month", "year"];
+  const rows = await Promise.all(
+    periods.map((key) =>
+      prisma.payment.aggregate({
+        where: {
+          shopId,
+          status: "succeeded",
+          createdAt: { gte: starts[key] },
+          appointment: { shopId, artistId },
+        },
+        _sum: { amountCents: true },
+        _count: { _all: true },
+      }),
+    ),
+  );
+  const [day, week, month, year] = rows;
+  return {
+    dayCents: day._sum.amountCents ?? 0,
+    dayCount: day._count._all,
+    weekCents: week._sum.amountCents ?? 0,
+    weekCount: week._count._all,
+    monthCents: month._sum.amountCents ?? 0,
+    monthCount: month._count._all,
+    yearCents: year._sum.amountCents ?? 0,
+    yearCount: year._count._all,
   };
 }

@@ -5,9 +5,12 @@ import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
 import { formatMoney, formatPhone, parseTags, serviceLabel, tagLabel } from "@/lib/utils";
-import { shopAnalytics } from "@/lib/shop-metrics";
+import { shopAnalytics, artistEarningsWindows, EMPTY_EARNINGS } from "@/lib/shop-metrics";
+import { findStaffArtist } from "@/lib/staff-artist";
+import { artistMatchHint } from "@/lib/artist-match";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
+import { EarningsWindowCards } from "@/components/earnings-window-cards";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +33,15 @@ export default async function DashboardPage({
   const { setup } = await searchParams;
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
+  const elevated = isAdminRole(session.role);
+  const staffMatch = elevated
+    ? { artist: null, via: null }
+    : await findStaffArtist(shop.id, session);
+  const unpaidArtistFilter = elevated
+    ? {}
+    : { artistId: staffMatch.artist?.id ?? "__none__" };
 
-  const [todays, unpaid, recentClients, stats, artistCount, extraUserCount, clientCount, appointmentCount] =
+  const [todays, unpaid, recentClients, stats, earnings, artistCount, extraUserCount, clientCount, appointmentCount] =
     await Promise.all([
     prisma.appointment.findMany({
       where: { shopId: shop.id, startAt: { gte: start, lte: end } },
@@ -44,6 +54,7 @@ export default async function DashboardPage({
         depositPaid: false,
         depositCents: { gt: 0 },
         status: { in: ["scheduled", "completed"] },
+        ...unpaidArtistFilter,
       },
       include: { client: true, artist: true },
       orderBy: { startAt: "asc" },
@@ -54,7 +65,10 @@ export default async function DashboardPage({
       orderBy: { createdAt: "desc" },
       take: 6,
     }),
-    shopAnalytics(shop.id),
+    elevated ? shopAnalytics(shop.id) : Promise.resolve(null),
+    staffMatch.artist
+      ? artistEarningsWindows(shop.id, staffMatch.artist.id, shop.timezone)
+      : Promise.resolve(EMPTY_EARNINGS),
     prisma.artist.count({ where: { shopId: shop.id } }),
     prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),
     prisma.client.count({ where: { shopId: shop.id } }),
@@ -90,7 +104,7 @@ export default async function DashboardPage({
         actions={
           <>
             <Button asChild variant="outline">
-              <Link href="/analytics">Analytics</Link>
+              <Link href="/analytics">{elevated ? "Analytics" : "Earnings"}</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/clients/new">New client</Link>
@@ -110,32 +124,39 @@ export default async function DashboardPage({
         />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={Wallet}
-          label="Revenue (30d)"
-          value={formatMoney(stats.revenue30Cents)}
-          hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
-        />
-        <MetricCard
-          icon={CreditCard}
-          label="Unpaid deposits"
-          value={formatMoney(stats.unpaidDepositCents)}
-          hint={`${stats.unpaidDepositCount} open`}
-        />
-        <MetricCard
-          icon={Percent}
-          label="Deposit collection"
-          value={stats.depositRate === null ? "—" : `${Math.round(stats.depositRate * 100)}%`}
-          hint={`${stats.paidDeposits} of ${stats.depositBooked} deposits marked paid`}
-        />
-        <MetricCard
-          icon={CalendarClock}
-          label="Upcoming week"
-          value={String(stats.upcomingWeek)}
-          hint="Scheduled in the next 7 days"
-        />
-      </div>
+      {elevated && stats ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            icon={Wallet}
+            label="Revenue (30d)"
+            value={formatMoney(stats.revenue30Cents)}
+            hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
+          />
+          <MetricCard
+            icon={CreditCard}
+            label="Unpaid deposits"
+            value={formatMoney(stats.unpaidDepositCents)}
+            hint={`${stats.unpaidDepositCount} open`}
+          />
+          <MetricCard
+            icon={Percent}
+            label="Deposit collection"
+            value={stats.depositRate === null ? "—" : `${Math.round(stats.depositRate * 100)}%`}
+            hint={`${stats.paidDeposits} of ${stats.depositBooked} deposits marked paid`}
+          />
+          <MetricCard
+            icon={CalendarClock}
+            label="Upcoming week"
+            value={String(stats.upcomingWeek)}
+            hint="Scheduled in the next 7 days"
+          />
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <p className="text-sm text-muted">{artistMatchHint(staffMatch.via, staffMatch.artist?.name ?? null)}</p>
+          <EarningsWindowCards windows={earnings} />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -191,9 +212,11 @@ export default async function DashboardPage({
               {shop.hoursOpen} – {shop.hoursClose}
             </p>
             <p className="mt-2 text-sm text-muted">{shop.timezone.replace(/_/g, " ")}</p>
-            <Button asChild variant="ghost" className="mt-4 px-0">
-              <Link href="/settings">Edit settings</Link>
-            </Button>
+            {elevated ? (
+              <Button asChild variant="ghost" className="mt-4 px-0">
+                <Link href="/settings">Edit settings</Link>
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -201,7 +224,7 @@ export default async function DashboardPage({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Unpaid deposits</CardTitle>
+            <CardTitle>{elevated ? "Unpaid deposits" : "Your unpaid deposits"}</CardTitle>
           </CardHeader>
           <CardContent>
             {unpaid.length === 0 ? (

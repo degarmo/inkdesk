@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin, requireShop } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/secrets";
 import { settingsSchema, stripeSettingsSchema, type ActionState } from "@/lib/validations";
 
 export async function updateSettings(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { session } = await requireShop();
+  const { session } = await requireAdmin();
   const parsed = settingsSchema.safeParse({
     name: formData.get("name"),
     timezone: formData.get("timezone"),

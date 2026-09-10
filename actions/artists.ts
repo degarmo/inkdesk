@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSession } from "@/lib/auth";
+import { isAdminRole, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { artistSchema, type ActionState } from "@/lib/validations";
 
 export async function createArtist(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can add artists." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
@@ -34,6 +37,9 @@ export async function createArtist(_prev: ActionState, formData: FormData): Prom
 
 export async function updateArtist(artistId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can change the roster." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
