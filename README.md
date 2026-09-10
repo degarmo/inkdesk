@@ -284,6 +284,10 @@ Django start (every boot): `bash start.sh` → `python manage.py migrate --noinp
 
 **Linking Postgres without a Blueprint re-apply:** Dashboard → web service → **Environment** → add `DATABASE_URL` from the Postgres instance’s **Internal Database URL**. Migrations still run via `prisma migrate deploy` on start.
 
+### Troubleshooting
+
+If parlor `/login` says the email or password is incorrect after you created a user in **Render Shell**, compare that Shell’s `DATABASE_URL` host / database name (pathname) / port (strip user and password) with the live Next process: `GET /api/health` and `GET /api/health?email=that@user`. A fingerprint mismatch, or `probe.exists: false`, means those users are not in the database the web process reads. (Django `GET /api/health/` on `inkdesk-api` only returns `{status:"ok"}`.)
+
 Stripe webhook (per shop, after you save that parlor’s keys):
 
 - Preferred: `https://<host>/api/stripe/webhook/<shopId>`
