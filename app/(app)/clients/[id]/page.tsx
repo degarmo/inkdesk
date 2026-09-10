@@ -55,7 +55,7 @@ export default async function ClientDetailPage({
     <div className="grid gap-6">
       <PageHeader
         title={client.name}
-        description="Appointment history first, then profile, notes, and references."
+        description="Every booking, then profile, chair notes, and references."
         actions={
           <>
             <Button asChild variant="outline">
