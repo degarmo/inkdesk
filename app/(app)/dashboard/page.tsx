@@ -67,7 +67,7 @@ export default async function DashboardPage({
     }),
     elevated ? shopAnalytics(shop.id) : Promise.resolve(null),
     staffMatch.artist
-      ? artistEarningsWindows(shop.id, staffMatch.artist.id, shop.timezone)
+      ? artistEarningsWindows(shop.id, staffMatch.artist.id, shop.timezone, shop)
       : Promise.resolve(EMPTY_EARNINGS),
     prisma.artist.count({ where: { shopId: shop.id } }),
     prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),

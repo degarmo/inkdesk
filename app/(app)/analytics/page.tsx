@@ -26,14 +26,14 @@ export default async function AnalyticsPage() {
   if (!isAdminRole(session.role)) {
     const match = await findStaffArtist(shop.id, session);
     const windows = match.artist
-      ? await artistEarningsWindows(shop.id, match.artist.id, shop.timezone)
+      ? await artistEarningsWindows(shop.id, match.artist.id, shop.timezone, shop)
       : EMPTY_EARNINGS;
 
     return (
       <div className="grid gap-6">
         <PageHeader
           title="Your earnings"
-          description={`${shop.name} · day / week / month / year in this parlor’s timezone. Not shop GMV.`}
+          description={`${shop.name} · day / week / month / year. Gross → parlor usage fee → your net. Not shop GMV.`}
           actions={
             <Button asChild variant="outline">
               <Link href="/dashboard">Dashboard</Link>

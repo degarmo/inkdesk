@@ -2,6 +2,7 @@ import { addDays, subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from "@/lib/constants";
 import { calendarPeriodStarts, type CalendarPeriod } from "@/lib/dates";
+import { grossFeeNet, usageFeePercentFromShop } from "@/lib/usage-fee";
 
 const OPEN_DEPOSIT_STATUSES = ["scheduled", "completed"];
 
@@ -165,38 +166,56 @@ export async function shopAnalytics(shopId: string) {
   };
 }
 
-export type EarningsWindows = {
-  dayCents: number;
-  dayCount: number;
-  weekCents: number;
-  weekCount: number;
-  monthCents: number;
-  monthCount: number;
-  yearCents: number;
-  yearCount: number;
+export type PeriodEarnings = {
+  count: number;
+  grossCents: number;
+  feeCents: number;
+  netCents: number;
 };
 
+export type EarningsWindows = {
+  usageFeePercent: number;
+  day: PeriodEarnings;
+  week: PeriodEarnings;
+  month: PeriodEarnings;
+  year: PeriodEarnings;
+};
+
+export function emptyPeriodEarnings(): PeriodEarnings {
+  return { count: 0, grossCents: 0, feeCents: 0, netCents: 0 };
+}
+
+export function toPeriodEarnings(
+  grossCents: number,
+  count: number,
+  usageFeePercent: number,
+): PeriodEarnings {
+  const split = grossFeeNet(grossCents, usageFeePercent);
+  return { count, ...split };
+}
+
 export const EMPTY_EARNINGS: EarningsWindows = {
-  dayCents: 0,
-  dayCount: 0,
-  weekCents: 0,
-  weekCount: 0,
-  monthCents: 0,
-  monthCount: 0,
-  yearCents: 0,
-  yearCount: 0,
+  usageFeePercent: 0,
+  day: emptyPeriodEarnings(),
+  week: emptyPeriodEarnings(),
+  month: emptyPeriodEarnings(),
+  year: emptyPeriodEarnings(),
 };
 
 /**
  * Succeeded Checkout on this artist’s appointments in this parlor only.
  * Unlinked payments (no appointment) stay shop GMV and never appear here.
+ * Gross is collected; fee is the parlor usage cut; net is the artist share.
+ * `usageFeePercent` is 0 until Shop.usageFeePercent exists (separate PR).
  */
 export async function artistEarningsWindows(
   shopId: string,
   artistId: string,
   timeZone: string,
+  shop: object,
   now = new Date(),
 ): Promise<EarningsWindows> {
+  const rate = usageFeePercentFromShop(shop);
   const starts = calendarPeriodStarts(now, timeZone);
   const periods: CalendarPeriod[] = ["day", "week", "month", "year"];
   const rows = await Promise.all(
@@ -215,13 +234,10 @@ export async function artistEarningsWindows(
   );
   const [day, week, month, year] = rows;
   return {
-    dayCents: day._sum.amountCents ?? 0,
-    dayCount: day._count._all,
-    weekCents: week._sum.amountCents ?? 0,
-    weekCount: week._count._all,
-    monthCents: month._sum.amountCents ?? 0,
-    monthCount: month._count._all,
-    yearCents: year._sum.amountCents ?? 0,
-    yearCount: year._count._all,
+    usageFeePercent: rate,
+    day: toPeriodEarnings(day._sum.amountCents ?? 0, day._count._all, rate),
+    week: toPeriodEarnings(week._sum.amountCents ?? 0, week._count._all, rate),
+    month: toPeriodEarnings(month._sum.amountCents ?? 0, month._count._all, rate),
+    year: toPeriodEarnings(year._sum.amountCents ?? 0, year._count._all, rate),
   };
 }

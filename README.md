@@ -14,8 +14,8 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - Appointments: day list with a week strip; consult / tattoo session / touch-up; scheduled, completed, cancelled, no-show; deposit amount and paid/unpaid.
 - Session notes on a booking or a client card: design, placement, ink/colors, aftercare given.
 - **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Soft-delete hides them from galleries.
-- Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge, revenue / deposit / upcoming-week cards (owner/admin). Staff see their own day / week / month / year earnings, not shop GMV.
-- **Analytics (`/analytics`):** parlor-scoped revenue (all / 7 / 30d), unpaid deposits, per-artist bookings and collected vs estimated (deposit book), booking mix, new clients, deposit collection rate, upcoming week, top services — **owner and admin**. Staff get their own chair’s succeeded Checkout for calendar day / week / month / year only. Never includes another parlor.
+- Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge, revenue / deposit / upcoming-week cards (owner/admin). Staff see their own day / week / month / year **net** (gross collected → parlor usage fee → net), not shop GMV.
+- **Analytics (`/analytics`):** parlor-scoped revenue (all / 7 / 30d), unpaid deposits, per-artist bookings and collected vs estimated (deposit book), booking mix, new clients, deposit collection rate, upcoming week, top services — **owner and admin**. Staff get their own chair’s succeeded Checkout for calendar day / week / month / year as gross → usage fee → net. Never includes another parlor.
 - Settings: shop name, timezone, business hours reminder. **Owner/admin only** (nav hidden and `requireAdmin` on the page and `updateSettings`). Owner/admin can re-open the setup guide.
 - **Admin (`/admin`):** parlor owners and admins — users, parlor settings, appointment oversight, payment history for **that shop**.
 - **Platform (`/platform`):** Inkdesk operators over **all shops**. Separate `PlatformUser` table and cookie. Shop logins cannot open it. Metrics include shops, active shops, signups, conversion (shops with ≥1 booking), churn proxy (no login 30d), GMV, bookings, clients, and first-party visits (7/30d, rough sessions, top paths).
@@ -48,7 +48,7 @@ Each parlor pastes its own Stripe keys for client deposits (or skips and takes c
 | --- | --- | --- | --- | --- |
 | Owner | Yes | Yes — this parlor’s shop haul | Yes — users, parlor Stripe keys, appointments, payments, settings, add artists | No |
 | Admin | Yes | Yes — this parlor’s shop haul | Same Admin tools; cannot deactivate the last owner | No |
-| Staff | Yes (no Settings, cannot add artists) | Yes — **own chair only** (day / week / month / year). Not shop GMV | No. `/admin` and `/settings` redirect to the dashboard | No |
+| Staff | Yes (no Settings, cannot add artists) | Yes — **own chair only** (day / week / month / year as gross → usage fee → net). Not shop GMV | No. `/admin` and `/settings` redirect to the dashboard | No |
 | Platform operator | No | No | No | Yes — instance metrics, traffic, every shop, bookings and payments pulse |
 
 ## Stripe: each parlor brings its own account
@@ -145,7 +145,7 @@ Open [http://localhost:43147/platform/login](http://localhost:43147/platform/log
 
 Parlor analytics: `/analytics` (and cards on `/dashboard`). Tenant-scoped. Owner/admin see shop GMV; staff see their linked chair only.
 
-**Staff “own money” attribution:** `Artist` is a roster row, not a login. Payments hang off `Appointment.artistId`. Staff earnings are succeeded Checkout on that chair in this `shopId`. Resolution order: (1) `Artist.userId` = the logged-in `User.id` (seeded for Blackbird Diego / Maya); (2) temporary fallback — exactly one unlinked artist in the shop whose name matches the login (case-insensitive). Zero or duplicate names are not attributed. Unlinked payments (no appointment) stay shop GMV and never appear on a staff view.
+**Staff “own money” attribution:** `Artist` is a roster row, not a login. Payments hang off `Appointment.artistId`. Staff earnings are succeeded Checkout on that chair in this `shopId`, shown as **gross → parlor usage fee → net** (`grossCents` / `feeCents` / `netCents`, same split as `splitGrossCents` shop take / artist share). Fee is 0% until `Shop.usageFeePercent` exists (separate parlor usage-fee PR). Resolution order: (1) `Artist.userId` = the logged-in `User.id` (seeded for Blackbird Diego / Maya); (2) temporary fallback — exactly one unlinked artist in the shop whose name matches the login (case-insensitive). Zero or duplicate names are not attributed. Unlinked payments (no appointment) stay shop GMV and never appear on a staff view.
 
 A shop is counted **active** if a parlor user signed in in the last 30 days (`User.lastSeenAt`) or it has a booking whose start already fell in that window (upcoming-only books do not count). **Churn proxy** is shops with no parlor login in 30 days. **Conversion** is shops with at least one appointment. Platform sessions use a separate cookie (`inkdesk_platform`).
 
