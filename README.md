@@ -13,7 +13,7 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - Artists: name, specialty, active / inactive.
 - Appointments: day list with a week strip; consult / tattoo session / touch-up; scheduled, completed, cancelled, no-show; deposit amount and paid/unpaid.
 - Session notes on a booking or a client card: design, placement, ink/colors, aftercare given.
-- **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Soft-delete hides them from galleries.
+- **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Review opens the full image; Download serves `Content-Disposition: attachment` from `GET /api/images/[id]?download=1`. Soft-delete hides them from galleries.
 - Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge, revenue / deposit / upcoming-week cards.
 - **Analytics (`/analytics`):** parlor-scoped revenue (all / 7 / 30d), unpaid deposits, per-artist bookings and collected vs estimated (deposit book), booking mix, new clients, deposit collection rate, upcoming week, top services. All shop roles. Never includes another parlor.
 - Settings: shop name, timezone, business hours reminder. Owner/admin can re-open the setup guide.
@@ -76,7 +76,7 @@ Optional `.env` keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
 - `Shop.onboardingCompletedAt` is null until an owner/admin finishes or skip-to-end on `/onboarding`. The migration backfills existing shops as already complete so live parlors are not locked into the wizard. `onboardingStep` (1–6) is the resume point.
 - Session notes require at least one of: design notes, placement, or ink/colors.
 - Creates (client, appointment, session note) send an idempotency key so a double-submit does not insert two rows.
-- Images live on local disk under `storage/shops/{shopId}/clients/{clientId}/` (gitignored). Serve them only through authenticated `GET /api/images/[id]`. Soft-deleted rows stay in the database with `deletedAt` set and are hidden from galleries. HEIC is rejected with an error; export JPEG/PNG/WebP instead. Caps: 10 MB per file, about 50 images per client and 20 per booking.
+- Images live on local disk under `storage/shops/{shopId}/clients/{clientId}/` (gitignored), resolved at read/write time from `STORAGE_ROOT` (Render disk: `/var/data/storage`). Serve them only through authenticated `GET /api/images/[id]` (add `?download=1` for an attachment). Soft-deleted rows stay in the database with `deletedAt` set and are hidden from galleries. HEIC is rejected with an error; export JPEG/PNG/WebP instead. Caps: 10 MB per file, about 50 images per client and 20 per booking.
 - Successful form updates `redirect()` so a no-JS POST does not hang.
 
 ## Run locally

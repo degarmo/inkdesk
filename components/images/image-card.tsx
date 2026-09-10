@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
+import { Download, Eye } from "lucide-react";
 import { softDeleteImage, updateImageMeta } from "@/actions/images";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
@@ -25,21 +27,46 @@ export function ImageCard({ image, redirectTo }: { image: ImageRecord; redirectT
     if (deleteState?.error) deleteOnce.unlock();
   }, [deleteState, deleteOnce]);
 
+  const reviewHref = `/api/images/${image.id}`;
+  const downloadHref = `/api/images/${image.id}?download=1`;
+  const bookingHref = image.appointmentId ? `/appointments/${image.appointmentId}` : null;
+  const showBookingLink = Boolean(bookingHref && redirectTo !== bookingHref);
+
   return (
     <li className="grid gap-3 rounded-lg border border-line bg-paper/60 p-3">
       <div className="overflow-hidden rounded-md border border-line bg-surface">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/api/images/${image.id}`}
+          src={reviewHref}
           alt={image.caption || imageKindLabel(image.kind)}
-          className="aspect-[3/2] w-full object-cover"
+          className="aspect-[3/2] w-full object-contain"
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge>{imageKindLabel(image.kind)}</Badge>
         {image.prepForVisit ? <Badge tone="olive">Prep</Badge> : null}
+        {showBookingLink ? <Badge tone="gold">On a booking</Badge> : null}
       </div>
       {image.caption ? <p className="text-sm text-ink">{image.caption}</p> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="sm" variant="outline">
+          <a href={reviewHref} target="_blank" rel="noreferrer">
+            <Eye className="size-3.5" aria-hidden />
+            Review
+          </a>
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <a href={downloadHref}>
+            <Download className="size-3.5" aria-hidden />
+            Download
+          </a>
+        </Button>
+        {showBookingLink && bookingHref ? (
+          <Button asChild size="sm" variant="ghost">
+            <Link href={bookingHref}>Open booking</Link>
+          </Button>
+        ) : null}
+      </div>
       <FormMessage error={metaState?.error || deleteState?.error} />
       <form action={metaAction} className="grid gap-2" onSubmit={metaOnce.onSubmit}>
         <input type="hidden" name="imageId" value={image.id} />

@@ -201,6 +201,10 @@ export default async function AppointmentDetailPage({
             appointmentId={appointment.id}
             redirectTo={`/appointments/${appointment.id}`}
           />
+          <p className="text-sm text-muted">
+            Photos on this booking are stored on the parlor disk and stay on the client card too. Review the
+            full image or download it when you sit down to start.
+          </p>
           <ImageGallery
             images={appointment.images}
             redirectTo={`/appointments/${appointment.id}`}
