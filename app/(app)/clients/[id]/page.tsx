@@ -74,6 +74,10 @@ export default async function ClientDetailPage({
           <CardTitle>References</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-6">
+          <p className="text-sm text-muted">
+            Everything uploaded here or on a booking lives on this card. Open Review for the full image, or
+            Download when it is time to start.
+          </p>
           <ImageUploadForm clientId={client.id} redirectTo={`/clients/${client.id}`} />
           <ImageGallery
             images={client.images}

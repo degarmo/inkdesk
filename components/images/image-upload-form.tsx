@@ -64,7 +64,12 @@ export function ImageUploadForm({
         </Field>
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" name="prepForVisit" className="h-4 w-4 accent-ink" />
+        <input
+          type="checkbox"
+          name="prepForVisit"
+          defaultChecked={Boolean(appointmentId)}
+          className="h-4 w-4 accent-ink"
+        />
         Prep for visit — show on today’s board
       </label>
       <div>

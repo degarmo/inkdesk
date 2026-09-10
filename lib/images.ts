@@ -8,17 +8,14 @@ import {
   type ImageKind,
 } from "./constants";
 import { prisma } from "./prisma";
-import { storageRoot } from "./paths";
+import { absoluteStoragePath, storageRoot } from "./paths";
+import { ACCEPTED_MIME, type AcceptedMime } from "./images-mime";
 
+export { ACCEPTED_MIME, type AcceptedMime } from "./images-mime";
+export { absoluteStoragePath, storageRoot } from "./paths";
+
+/** Prefer `storageRoot()` — this is a convenience alias evaluated at import time. */
 export const STORAGE_ROOT = storageRoot();
-
-export const ACCEPTED_MIME = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-} as const;
-
-export type AcceptedMime = keyof typeof ACCEPTED_MIME;
 
 const HEIC_MESSAGE =
   "HEIC photos are not supported yet. Export as JPEG, PNG, or WebP and try again.";
@@ -43,12 +40,8 @@ export function isImageKind(value: string): value is ImageKind {
   return IMAGE_KINDS.some((kind) => kind.value === value);
 }
 
-export function absoluteStoragePath(storageKey: string) {
-  return path.join(STORAGE_ROOT, storageKey);
-}
-
 export function storageKeyFor(shopId: string, clientId: string, imageId: string, ext: string) {
-  return path.join("shops", shopId, "clients", clientId, `${imageId}.${ext}`);
+  return path.posix.join("shops", shopId, "clients", clientId, `${imageId}.${ext}`);
 }
 
 export async function writeShopImage(storageKey: string, bytes: Buffer) {

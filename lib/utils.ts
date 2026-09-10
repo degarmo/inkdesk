@@ -83,11 +83,11 @@ export function durationLabel(minutes: number) {
   return hours === 1 ? "1 hour" : `${hours} hours`;
 }
 
-/** Same-origin path for post-login return. Only parlor image URLs. */
+/** Same-origin path for post-login return. Only parlor image URLs (optional download=1). */
 export function safeLoginNext(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const path = raw.trim();
-  if (!/^\/api\/images\/[A-Za-z0-9_-]+$/.test(path)) return null;
+  if (!/^\/api\/images\/[A-Za-z0-9_-]+(?:\?download=1)?$/.test(path)) return null;
   return path;
 }
 

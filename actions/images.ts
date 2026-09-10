@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
+import { asUploadFile } from "@/lib/image-file";
 import {
   assertAppointmentCap,
   assertClientCap,
@@ -77,9 +78,9 @@ export async function uploadClientImage(_prev: ActionState, formData: FormData):
   const clientCap = await assertClientCap(session.shopId, clientId);
   if (clientCap) return { error: clientCap };
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Choose a JPEG, PNG, or WebP image." };
+  const file = asUploadFile(formData.get("file"));
+  if ("error" in file) {
+    return { error: file.error };
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -90,7 +91,11 @@ export async function uploadClientImage(_prev: ActionState, formData: FormData):
 
   const id = crypto.randomUUID();
   const storageKey = storageKeyFor(session.shopId, clientId, id, checked.ext);
-  await writeShopImage(storageKey, checked.bytes);
+  try {
+    await writeShopImage(storageKey, checked.bytes);
+  } catch {
+    return { error: "Could not write the image to disk. On Render, confirm the persistent disk is mounted and STORAGE_ROOT=/var/data/storage." };
+  }
 
   await prisma.clientImage.create({
     data: {
