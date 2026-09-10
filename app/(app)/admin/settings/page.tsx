@@ -5,18 +5,20 @@ import { requireAdmin } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
 import { StripeSettingsForm } from "@/components/forms/stripe-settings-form";
+import { UsageFeeForm } from "@/components/forms/usage-fee-form";
 import { FlashNotice } from "@/components/flash-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { decryptSecret, maskSecret } from "@/lib/secrets";
 import { requestOrigin, shopStripeCredentials, stripeConfigured } from "@/lib/stripe";
+import { usageFeePercentNumber } from "@/lib/usage-fee";
 
 export const metadata: Metadata = { title: "Parlor settings" };
 
 export default async function AdminSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; stripe?: string }>;
+  searchParams: Promise<{ saved?: string; stripe?: string; usageFee?: string }>;
 }) {
   const { shop } = await requireAdmin();
   const flash = await searchParams;
@@ -29,7 +31,7 @@ export default async function AdminSettingsPage({
     <div className="grid gap-6">
       <PageHeader
         title="Parlor settings"
-        description="Identity for the floor, plus this shop’s own Stripe account. There is no shared Tally Two processor."
+        description="Identity for the floor, the parlor usage fee, plus this shop’s own Stripe account. There is no shared Tally Two processor."
       />
 
       <Card>
@@ -75,7 +77,25 @@ export default async function AdminSettingsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Stripe</CardTitle>
+            <CardTitle>Usage fee</CardTitle>
+            <CardDescription>
+              The parlor’s cut of artist usage of space and products. Not Inkdesk billing, not a Stripe Connect fee.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <FlashNotice saved={flash.usageFee} message="Usage fee saved." />
+            <UsageFeeForm
+              usageFeePercent={usageFeePercentNumber(shop.usageFeePercent)}
+              canEdit
+              redirectTo="/admin/settings"
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Stripe</CardTitle>
             <CardDescription>
               Checkout and webhooks use keys stored on this parlor. Secrets are encrypted at rest.
             </CardDescription>
@@ -92,7 +112,6 @@ export default async function AdminSettingsPage({
             />
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

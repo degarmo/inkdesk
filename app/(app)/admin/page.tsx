@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { subDays } from "date-fns";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, shopTodayKey } from "@/lib/dates";
 import { formatMoney } from "@/lib/utils";
+import { formatUsageFeePercent, splitGrossCents, usageFeePercentNumber } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,8 +19,10 @@ export default async function AdminOverviewPage() {
   const { start, end } = dayBounds(todayKey, shop.timezone);
   const stripeReady = stripeConfigured(shop);
   const stripeSource = shopStripeCredentials(shop)?.source;
+  const usageFeePercent = usageFeePercentNumber(shop.usageFeePercent);
+  const d30 = subDays(new Date(), 30);
 
-  const [users, todays, unpaid, payments] = await Promise.all([
+  const [users, todays, unpaid, payments, revenue30] = await Promise.all([
     prisma.user.findMany({ where: { shopId: shop.id }, orderBy: { createdAt: "asc" } }),
     prisma.appointment.count({ where: { shopId: shop.id, startAt: { gte: start, lte: end } } }),
     prisma.appointment.count({
@@ -34,10 +38,15 @@ export default async function AdminOverviewPage() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.payment.aggregate({
+      where: { shopId: shop.id, status: "succeeded", createdAt: { gte: d30 } },
+      _sum: { amountCents: true },
+    }),
   ]);
 
   const activeUsers = users.filter((user) => user.active).length;
   const succeeded = payments.filter((payment) => payment.status === "succeeded");
+  const haul30 = splitGrossCents(revenue30._sum.amountCents ?? 0, usageFeePercent);
 
   return (
     <div className="grid gap-6">
@@ -98,6 +107,21 @@ export default async function AdminOverviewPage() {
             </Button>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Shop usage fee (30d)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-serif text-3xl text-ink">{formatMoney(haul30.shopTakeCents)}</p>
+            <p className="mt-1 text-sm text-muted">
+              {formatUsageFeePercent(usageFeePercent)} of {formatMoney(haul30.grossCents)} collected. Parlor cut of
+              artist usage — not Inkdesk billing.
+            </p>
+            <Button asChild variant="ghost" className="mt-3 px-0">
+              <Link href="/admin/settings">Edit usage fee</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -114,14 +138,23 @@ export default async function AdminOverviewPage() {
             </p>
           ) : (
             <ul className="divide-y divide-line">
-              {payments.map((payment) => (
+              {payments.map((payment) => {
+                const split =
+                  payment.status === "succeeded"
+                    ? splitGrossCents(payment.amountCents, usageFeePercent)
+                    : null;
+                return (
                 <li key={payment.id} className="flex items-center justify-between py-3 text-sm">
                   <span className="text-ink">
                     {formatMoney(payment.amountCents)} · {payment.type} · {payment.status}
+                    {split
+                      ? ` · shop ${formatMoney(split.shopTakeCents)} / artist ${formatMoney(split.artistShareCents)}`
+                      : ""}
                   </span>
                   <span className="text-muted">{formatShopDate(payment.createdAt, shop.timezone, "MMM d")}</span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
           {succeeded.length > 0 ? (
@@ -138,13 +171,13 @@ export default async function AdminOverviewPage() {
         <CardContent>
           <ul className="grid gap-1 text-sm text-muted">
             <li>
-              <span className="text-ink">Owner</span> — full parlor control, including users and Stripe keys.
+              <span className="text-ink">Owner</span> — full parlor control, including users, Stripe keys, and the usage fee.
             </li>
             <li>
               <span className="text-ink">Admin</span> — same Admin tools; cannot deactivate the last owner.
             </li>
             <li>
-              <span className="text-ink">Staff</span> — clients, artists, appointments, notes, and images only.
+              <span className="text-ink">Staff</span> — clients, artists, appointments, notes, and images only. Cannot change the usage fee.
             </li>
           </ul>
         </CardContent>

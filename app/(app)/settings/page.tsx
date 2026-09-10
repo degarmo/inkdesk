@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { ListChecks } from "lucide-react";
 import { reopenOnboarding } from "@/actions/onboarding";
 import { requireShop, isAdminRole } from "@/lib/auth";
+import { usageFeePercentNumber } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
+import { UsageFeeForm } from "@/components/forms/usage-fee-form";
 import { FlashNotice } from "@/components/flash-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,17 +15,17 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; usageFee?: string }>;
 }) {
   const { shop, session } = await requireShop();
-  const { saved } = await searchParams;
+  const { saved, usageFee } = await searchParams;
   const canSetup = isAdminRole(session.role);
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Settings"
-        description="Shop identity and the clock the calendar uses."
+        description="Shop identity, hours, and the parlor usage fee applied to artist vs shop money."
       />
 
       {canSetup ? (
@@ -63,6 +65,22 @@ export default async function SettingsPage({
               hoursOpen: shop.hoursOpen,
               hoursClose: shop.hoursClose,
             }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Usage fee</CardTitle>
+          <CardDescription>
+            The parlor’s cut of artist usage of space and products — not Inkdesk billing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <FlashNotice saved={usageFee} message="Usage fee saved." />
+          <UsageFeeForm
+            usageFeePercent={usageFeePercentNumber(shop.usageFeePercent)}
+            canEdit={canSetup}
           />
         </CardContent>
       </Card>

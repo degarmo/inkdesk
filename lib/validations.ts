@@ -80,6 +80,19 @@ export const settingsSchema = z.object({
   hoursClose: z.string().min(1),
 });
 
+function hasAtMostOneDecimal(value: number) {
+  return Math.abs(value * 10 - Math.round(value * 10)) < 1e-8;
+}
+
+/** Shop-wide parlor usage fee. Owner/admin write path only. */
+export const usageFeeSchema = z.object({
+  usageFeePercent: z.coerce
+    .number()
+    .min(0, "Usage fee must be between 0 and 100.")
+    .max(100, "Usage fee must be between 0 and 100.")
+    .refine(hasAtMostOneDecimal, "Use at most one decimal place, for example 12.5."),
+});
+
 const roleValues = USER_ROLES.map((item) => item.value) as [string, ...string[]];
 
 export const shopUserSchema = z.object({

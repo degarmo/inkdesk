@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, CreditCard, Percent, Wallet } from "lucide-react";
+import { CalendarClock, CreditCard, Percent, Store, Wallet } from "lucide-react";
 import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
@@ -18,6 +18,7 @@ import { SetupChecklist } from "@/components/onboarding/setup-checklist";
 import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
 import { buildSetupChecklist } from "@/lib/onboarding";
 import { shopHasOwnStripeKeys, stripeConfigured } from "@/lib/stripe";
+import { formatUsageFeePercent } from "@/lib/usage-fee";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -112,10 +113,22 @@ export default async function DashboardPage({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          icon={Wallet}
-          label="Revenue (30d)"
+          icon={CreditCard}
+          label="Collected (30d)"
           value={formatMoney(stats.revenue30Cents)}
           hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
+        />
+        <MetricCard
+          icon={Store}
+          label="Shop usage fee (30d)"
+          value={formatMoney(stats.shopTake30Cents)}
+          hint={`${formatUsageFeePercent(stats.usageFeePercent)} parlor cut of collected · ${formatMoney(stats.shopTakeAllCents)} all time`}
+        />
+        <MetricCard
+          icon={Wallet}
+          label="Artist share (30d)"
+          value={formatMoney(stats.artistShare30Cents)}
+          hint={`Collected minus the parlor usage fee · ${formatMoney(stats.artistShareAllCents)} all time`}
         />
         <MetricCard
           icon={CreditCard}
@@ -123,6 +136,9 @@ export default async function DashboardPage({
           value={formatMoney(stats.unpaidDepositCents)}
           hint={`${stats.unpaidDepositCount} open`}
         />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Percent}
           label="Deposit collection"

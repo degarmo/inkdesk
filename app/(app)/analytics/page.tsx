@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, CreditCard, Percent, Users } from "lucide-react";
+import { CalendarDays, CreditCard, Percent, Store, Users, Wallet } from "lucide-react";
 import { requireShop } from "@/lib/auth";
 import { shopAnalytics } from "@/lib/shop-metrics";
 import { formatMoney, serviceLabel } from "@/lib/utils";
+import { formatUsageFeePercent } from "@/lib/usage-fee";
 import { APPOINTMENT_STATUSES } from "@/lib/constants";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard, RatioBar } from "@/components/metric-card";
@@ -27,7 +28,7 @@ export default async function AnalyticsPage() {
     <div className="grid gap-6">
       <PageHeader
         title="Analytics"
-        description={`${shop.name} only. Numbers never include another parlor. Full session price is not a field — estimated artist revenue is the deposit book on that artist’s appointments; collected is succeeded Checkout on those rows.`}
+        description={`${shop.name} only. Numbers never include another parlor. Collected is succeeded Checkout. Shop usage fee is this parlor’s ${formatUsageFeePercent(stats.usageFeePercent)} cut of that collected amount (space and products — not Inkdesk billing). Artist share is what remains. Estimated is the deposit book on that artist’s appointments, with the same split.`}
         actions={
           <Button asChild variant="outline">
             <Link href="/dashboard">Dashboard</Link>
@@ -38,9 +39,21 @@ export default async function AnalyticsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={CreditCard}
-          label="Revenue"
+          label="Collected"
           value={formatMoney(stats.revenueAllCents)}
           hint={`${stats.revenueAllCount} succeeded all time · ${formatMoney(stats.revenue7Cents)} last 7d · ${formatMoney(stats.revenue30Cents)} last 30d`}
+        />
+        <MetricCard
+          icon={Store}
+          label="Shop usage fee"
+          value={formatMoney(stats.shopTakeAllCents)}
+          hint={`${formatUsageFeePercent(stats.usageFeePercent)} parlor cut of collected · ${formatMoney(stats.shopTake30Cents)} last 30d`}
+        />
+        <MetricCard
+          icon={Wallet}
+          label="Artist share"
+          value={formatMoney(stats.artistShareAllCents)}
+          hint={`Collected minus the parlor usage fee · ${formatMoney(stats.artistShare30Cents)} last 30d`}
         />
         <MetricCard
           icon={CreditCard}
@@ -48,6 +61,9 @@ export default async function AnalyticsPage() {
           value={formatMoney(stats.unpaidDepositCents)}
           hint={`${stats.unpaidDepositCount} open on scheduled or completed chairs`}
         />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Percent}
           label="Deposit collection"
@@ -64,9 +80,6 @@ export default async function AnalyticsPage() {
           value={String(stats.upcomingWeek)}
           hint="Scheduled starts in the next 7 days"
         />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Users}
           label="Clients"
@@ -108,8 +121,9 @@ export default async function AnalyticsPage() {
             <div>
               <CardTitle>Per artist</CardTitle>
               <CardDescription>
-                Collected = succeeded payments on that artist’s appointments. Estimated = deposit amounts on those
-                bookings (not remaining balance).
+                Collected = succeeded payments on that artist’s appointments. Shop usage fee is this parlor’s{" "}
+                {formatUsageFeePercent(stats.usageFeePercent)} cut of collected. Artist share is the remainder.
+                Estimated = deposit amounts on those bookings (same split; not remaining balance).
               </CardDescription>
             </div>
           </CardHeader>
@@ -118,14 +132,16 @@ export default async function AnalyticsPage() {
               <EmptyState title="No artists" body="Add an artist on the roster to attribute chairs." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[32rem] text-left text-sm">
+                <table className="w-full min-w-[40rem] text-left text-sm">
                   <thead>
                     <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
                       <th className="py-2 pr-3 font-medium">Artist</th>
                       <th className="py-2 pr-3 font-medium">Bookings</th>
                       <th className="py-2 pr-3 font-medium">Completed</th>
                       <th className="py-2 pr-3 font-medium">Estimated</th>
-                      <th className="py-2 font-medium">Collected</th>
+                      <th className="py-2 pr-3 font-medium">Collected</th>
+                      <th className="py-2 pr-3 font-medium">Shop usage fee</th>
+                      <th className="py-2 font-medium">Artist share</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -141,7 +157,9 @@ export default async function AnalyticsPage() {
                         <td className="py-3 pr-3">{row.bookings}</td>
                         <td className="py-3 pr-3">{row.completed}</td>
                         <td className="py-3 pr-3">{formatMoney(row.estimatedCents)}</td>
-                        <td className="py-3">{formatMoney(row.collectedCents)}</td>
+                        <td className="py-3 pr-3">{formatMoney(row.collectedCents)}</td>
+                        <td className="py-3 pr-3">{formatMoney(row.shopTakeCents)}</td>
+                        <td className="py-3">{formatMoney(row.artistShareCents)}</td>
                       </tr>
                     ))}
                   </tbody>
