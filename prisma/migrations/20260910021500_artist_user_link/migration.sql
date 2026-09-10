@@ -1,5 +1,5 @@
--- Optional link from a roster artist to a parlor login (staff/admin).
--- Used so a staff dashboard can show that artist’s own gross / usage fee / net.
+-- Optional 1:1 login on a roster chair. Staff earnings prefer this link.
+-- Same-shop unique name match remains a temporary fallback in application code.
 ALTER TABLE "Artist" ADD COLUMN "userId" TEXT;
 
 CREATE UNIQUE INDEX "Artist_userId_key" ON "Artist"("userId");

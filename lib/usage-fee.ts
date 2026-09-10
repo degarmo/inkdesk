@@ -65,3 +65,19 @@ export function splitGrossCents(grossCents: number, usageFeePercent: number) {
     artistShareCents: gross - shopTakeCents,
   };
 }
+
+/** Staff earnings labels. Same split as shopTake / artistShare. */
+export function grossFeeNet(grossCents: number, usageFeePercent: number) {
+  const split = splitGrossCents(grossCents, usageFeePercent);
+  return {
+    grossCents: split.grossCents,
+    feeCents: split.shopTakeCents,
+    netCents: split.artistShareCents,
+  };
+}
+
+/** Reads Shop.usageFeePercent; 0 if the field is missing. */
+export function usageFeePercentFromShop(shop: object | null | undefined) {
+  if (!shop || !("usageFeePercent" in shop)) return 0;
+  return usageFeePercentNumber((shop as { usageFeePercent?: unknown }).usageFeePercent ?? 0);
+}

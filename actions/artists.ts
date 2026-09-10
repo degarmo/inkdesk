@@ -50,6 +50,9 @@ export async function createArtist(
   formData: FormData,
 ): Promise<CredentialActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can add artists." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
@@ -62,9 +65,6 @@ export async function createArtist(
 
   const loginAttempt = parseOptionalLogin(formData, parsed.data.name);
   if (loginAttempt.wantsLogin) {
-    if (!isAdminRole(session.role)) {
-      return { error: "Only an owner or admin can create a shop login." };
-    }
     if ("error" in loginAttempt) {
       return { error: loginAttempt.error };
     }
@@ -125,6 +125,9 @@ export async function updateArtist(
   formData: FormData,
 ): Promise<CredentialActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can change the roster." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
@@ -144,9 +147,6 @@ export async function updateArtist(
 
   const loginAttempt = parseOptionalLogin(formData, parsed.data.name);
   if (loginAttempt.wantsLogin) {
-    if (!isAdminRole(session.role)) {
-      return { error: "Only an owner or admin can create a shop login." };
-    }
     if ("error" in loginAttempt) {
       return { error: loginAttempt.error };
     }

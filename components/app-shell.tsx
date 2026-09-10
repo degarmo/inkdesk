@@ -3,19 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { BarChart3, CalendarDays, LayoutDashboard, Menu, Settings, Shield, Users, X, PenTool } from "lucide-react";
+import { BarChart3, CalendarDays, LayoutDashboard, Menu, Settings, Shield, Users, Wallet, X, PenTool } from "lucide-react";
 import { logOut } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { cn, isAdminRole } from "@/lib/utils";
 
-const floorLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+const sharedFloor = [
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/artists", label: "Artists", icon: PenTool },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+function parlorNav(role: string) {
+  const elevated = isAdminRole(role);
+  const money = elevated
+    ? { href: "/analytics", label: "Analytics", icon: BarChart3 }
+    : { href: "/analytics", label: "Earnings", icon: Wallet };
+  const links = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    money,
+    ...sharedFloor,
+  ];
+  if (elevated) {
+    links.push({ href: "/settings", label: "Settings", icon: Settings });
+    links.push({ href: "/admin", label: "Admin", icon: Shield });
+  }
+  return links;
+}
 
 export function AppShell({
   shopName,
@@ -30,11 +44,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const showAdmin = isAdminRole(role);
-
-  const links = showAdmin
-    ? [...floorLinks, { href: "/admin", label: "Admin", icon: Shield }]
-    : floorLinks;
+  const links = parlorNav(role);
 
   const nav = (
     <nav className="flex flex-col gap-1">

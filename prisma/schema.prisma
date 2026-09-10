@@ -64,11 +64,12 @@ model Artist {
   id           String        @id @default(cuid())
   shopId       String
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  /// Optional login for this chair. Staff earnings prefer this over a same-shop name match.
+  userId       String?       @unique
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   name         String
   specialty    String        @default("")
   active       Boolean       @default(true)
-  userId       String?       @unique
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]

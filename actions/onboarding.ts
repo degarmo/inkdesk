@@ -101,18 +101,31 @@ export async function addOnboardingArtist(_prev: ActionState, formData: FormData
 
 export async function addOwnerAsArtist(_formData?: FormData): Promise<void> {
   const { session } = await requireOnboardingAdmin();
-  const existing = await prisma.artist.findFirst({
-    where: { shopId: session.shopId, name: session.name },
+  const existingByUser = await prisma.artist.findFirst({
+    where: { shopId: session.shopId, userId: session.id },
   });
-  if (!existing) {
-    await prisma.artist.create({
-      data: {
-        shopId: session.shopId,
-        name: session.name,
-        specialty: "",
-        active: true,
-      },
+  if (!existingByUser) {
+    const existingByName = await prisma.artist.findFirst({
+      where: { shopId: session.shopId, name: session.name },
     });
+    if (existingByName) {
+      if (!existingByName.userId) {
+        await prisma.artist.update({
+          where: { id: existingByName.id },
+          data: { userId: session.id },
+        });
+      }
+    } else {
+      await prisma.artist.create({
+        data: {
+          shopId: session.shopId,
+          name: session.name,
+          specialty: "",
+          active: true,
+          userId: session.id,
+        },
+      });
+    }
   }
   await setStep(session.shopId, 3);
   revalidateOnboarding();

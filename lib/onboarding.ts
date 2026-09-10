@@ -26,7 +26,7 @@ export function needsOnboarding(
   return isAdminRole(role);
 }
 
-/** Floor routes staff and finished shops can open. Settings stay reachable so Stripe keys can be pasted. */
+/** Floor routes staff and finished shops can open. Owner/admin still use settings during setup. */
 export function isOnboardingEscapePath(path: string) {
   return path === "/settings" || path === "/admin/settings";
 }

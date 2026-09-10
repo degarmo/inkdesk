@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { ListChecks } from "lucide-react";
+import { requireAdmin } from "@/lib/auth";
 import { reopenOnboarding } from "@/actions/onboarding";
-import { requireShop, isAdminRole } from "@/lib/auth";
-import { usageFeePercentNumber } from "@/lib/usage-fee";
+import { usageFeePercentFromShop } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
 import { UsageFeeForm } from "@/components/forms/usage-fee-form";
 import { FlashNotice } from "@/components/flash-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListChecks } from "lucide-react";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -17,39 +17,36 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ saved?: string; usageFee?: string }>;
 }) {
-  const { shop, session } = await requireShop();
+  const { shop } = await requireAdmin();
   const { saved, usageFee } = await searchParams;
-  const canSetup = isAdminRole(session.role);
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Settings"
-        description="Shop identity, hours, and the parlor usage fee taken from artist earnings."
+        description="Shop identity, hours, and the parlor usage fee taken from artist earnings. Owners and admins only."
       />
 
-      {canSetup ? (
-        <Card className="max-w-2xl">
-          <CardHeader>
-            <div>
-              <CardTitle>Setup guide</CardTitle>
-              <CardDescription>
-                {shop.onboardingCompletedAt
-                  ? "Walk through shop profile, artists, team, payments, and a first client again."
-                  : "This parlor is not marked complete. Finish or skip remaining steps to open the floor."}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form action={reopenOnboarding}>
-              <Button type="submit" variant="outline">
-                <ListChecks className="h-4 w-4" />
-                Open setup guide
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      ) : null}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <div>
+            <CardTitle>Setup guide</CardTitle>
+            <CardDescription>
+              {shop.onboardingCompletedAt
+                ? "Walk through shop profile, artists, team, payments, and a first client again."
+                : "This parlor is not marked complete. Finish or skip remaining steps to open the floor."}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form action={reopenOnboarding}>
+            <Button type="submit" variant="outline">
+              <ListChecks className="h-4 w-4" />
+              Open setup guide
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="max-w-2xl">
         <CardHeader>
@@ -73,15 +70,13 @@ export default async function SettingsPage({
         <CardHeader>
           <CardTitle>Usage fee</CardTitle>
           <CardDescription>
-            The parlor’s cut of artist earnings for space and products — taken out of the artist, not added on the client. Not Inkdesk billing.
+            The parlor’s cut of artist earnings for space and products — taken out of the artist, not added on the
+            client. Not Inkdesk billing.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <FlashNotice saved={usageFee} message="Usage fee saved." />
-          <UsageFeeForm
-            usageFeePercent={usageFeePercentNumber(shop.usageFeePercent)}
-            canEdit={canSetup}
-          />
+          <UsageFeeForm usageFeePercent={usageFeePercentFromShop(shop)} canEdit />
         </CardContent>
       </Card>
 
@@ -92,8 +87,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              A public booking page is out of scope for this trial. When it lands, clients will pick
-              an artist and an open slot without emailing the shop.
+              A public booking page is out of scope for this trial. When it lands, clients will pick an artist and an
+              open slot without emailing the shop.
             </p>
           </CardContent>
         </Card>
@@ -103,8 +98,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              Each parlor connects its own Stripe account under Admin → Settings. Checkout uses that shop&apos;s
-              secret key — not a shared platform account. Until keys are saved, pay buttons read{" "}
+              Each parlor connects its own Stripe account under Admin → Settings. Checkout uses that shop&apos;s secret
+              key — not a shared platform account. Until keys are saved, pay buttons read{" "}
               <span className="text-ink">Connect Stripe in Admin → Settings</span>.
             </p>
           </CardContent>
@@ -115,8 +110,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              Reminder texts for tomorrow&apos;s chairs are a planned follow-up. For now, the day
-              list on the dashboard is the source of truth.
+              Reminder texts for tomorrow&apos;s chairs are a planned follow-up. For now, the day list on the dashboard
+              is the source of truth.
             </p>
           </CardContent>
         </Card>

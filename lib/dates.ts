@@ -1,6 +1,8 @@
 import { addDays, format, parseISO, startOfDay, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 
+export type CalendarPeriod = "day" | "week" | "month" | "year";
+
 export function shopNow(timeZone: string) {
   return toZonedTime(new Date(), timeZone);
 }
@@ -48,17 +50,15 @@ export function timeValueInZone(date: Date, timeZone: string) {
   return formatInTimeZone(date, timeZone, "HH:mm");
 }
 
-export type CalendarPeriodKey = "day" | "week" | "month" | "year";
-
-export type CalendarPeriod = {
-  key: CalendarPeriodKey;
+export type CalendarPeriodRange = {
+  key: CalendarPeriod;
   label: string;
   start: Date;
   end: Date;
 };
 
 /** Shop-local today, this week (Sunday–Saturday), this month, and this year, all ending now. */
-export function calendarPeriodBounds(timeZone: string, now = new Date()): Record<CalendarPeriodKey, CalendarPeriod> {
+export function calendarPeriodBounds(timeZone: string, now = new Date()): Record<CalendarPeriod, CalendarPeriodRange> {
   const todayKey = formatInTimeZone(now, timeZone, "yyyy-MM-dd");
   const zoned = toZonedTime(now, timeZone);
   const end = dayBounds(todayKey, timeZone).end;
@@ -72,6 +72,24 @@ export function calendarPeriodBounds(timeZone: string, now = new Date()): Record
     week: { key: "week", label: "This week", start: dayBounds(weekStartKey, timeZone).start, end },
     month: { key: "month", label: "This month", start: dayBounds(monthStartKey, timeZone).start, end },
     year: { key: "year", label: "This year", start: dayBounds(yearStartKey, timeZone).start, end },
+  };
+}
+
+/**
+ * Inclusive starts for shop-local calendar windows (Sunday-start week).
+ * Payments with createdAt >= start count in that window through now.
+ */
+export function calendarPeriodStarts(now: Date, timeZone: string) {
+  const zoned = toZonedTime(now, timeZone);
+  const dayKey = format(zoned, "yyyy-MM-dd");
+  const weekKey = format(startOfWeek(zoned, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const monthKey = format(startOfMonth(zoned), "yyyy-MM-dd");
+  const yearKey = format(startOfYear(zoned), "yyyy-MM-dd");
+  return {
+    day: fromZonedTime(`${dayKey}T00:00:00`, timeZone),
+    week: fromZonedTime(`${weekKey}T00:00:00`, timeZone),
+    month: fromZonedTime(`${monthKey}T00:00:00`, timeZone),
+    year: fromZonedTime(`${yearKey}T00:00:00`, timeZone),
   };
 }
 

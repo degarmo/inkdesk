@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import { usageFeeSchema } from "./validations";
 import {
   formatUsageFeePercent,
+  grossFeeNet,
   shopUsageTakeCents,
   splitGrossCents,
+  usageFeePercentFromShop,
   usageFeePercentNumber,
 } from "./usage-fee";
 
@@ -52,6 +54,25 @@ describe("splitGrossCents", () => {
       shopTakeCents: 5_000,
       artistShareCents: 0,
     });
+  });
+});
+
+describe("grossFeeNet", () => {
+  it("aliases shop take as fee and artist share as net", () => {
+    assert.deepEqual(grossFeeNet(10_000, 20), {
+      grossCents: 10_000,
+      feeCents: 2_000,
+      netCents: 8_000,
+    });
+  });
+});
+
+describe("usageFeePercentFromShop", () => {
+  it("is 0 when the column is missing, otherwise the stored rate", () => {
+    assert.equal(usageFeePercentFromShop({}), 0);
+    assert.equal(usageFeePercentFromShop(null), 0);
+    assert.equal(usageFeePercentFromShop({ usageFeePercent: 15 }), 15);
+    assert.equal(usageFeePercentFromShop({ usageFeePercent: "12.5" }), 12.5);
   });
 });
 
