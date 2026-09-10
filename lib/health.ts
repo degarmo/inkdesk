@@ -76,14 +76,14 @@ export async function runHealthCheck(input: {
     return errorResult("DATABASE_URL is not a valid PostgreSQL URL.", input.databaseUrl);
   }
 
-  let db: HealthDb;
+  let db: HealthDb | undefined;
   try {
     db = input.db ?? (await input.loadDb?.());
-    if (!db) {
-      return errorResult("Database client is not available.", input.databaseUrl);
-    }
   } catch {
     return errorResult("Database client failed to load.", input.databaseUrl);
+  }
+  if (!db) {
+    return errorResult("Database client is not available.", input.databaseUrl);
   }
 
   try {
