@@ -5,7 +5,6 @@ import { useActionState, useEffect, useState } from "react";
 import {
   Banknote,
   Check,
-  Copy,
   CreditCard,
   Mail,
   UserPlus,
@@ -23,10 +22,10 @@ import {
   skipOnboardingPayments,
   skipOnboardingTeam,
   skipOnboardingToEnd,
-  type InviteActionState,
 } from "@/actions/onboarding";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CreatedLoginCredentials } from "@/components/forms/created-login-credentials";
 import { Field, FormMessage, NativeSelect } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -293,7 +292,18 @@ function TeamStep({ users }: { users: WizardUser[] }) {
         </div>
       ) : null}
 
-      {state?.password && state.email ? <InviteCredentials state={state} /> : null}
+      {state?.password && state.email ? (
+        <CreatedLoginCredentials
+          state={state}
+          footer={
+            <form action={skipOnboardingTeam}>
+              <Button type="submit" size="sm">
+                Continue
+              </Button>
+            </form>
+          }
+        />
+      ) : null}
 
       <form action={action} className="grid gap-4" autoComplete="off" onSubmit={onSubmit}>
         <FormMessage error={state?.error} success={state?.password ? undefined : state?.success} />
@@ -335,58 +345,6 @@ function TeamStep({ users }: { users: WizardUser[] }) {
           Skip for now
         </Button>
       </form>
-    </div>
-  );
-}
-
-function InviteCredentials({ state }: { state: NonNullable<InviteActionState> }) {
-  const [copied, setCopied] = useState(false);
-  const blob = `${state.email}\n${state.password}`;
-
-  return (
-    <div className="rounded-md border border-olive/30 bg-olive/8 px-3 py-3">
-      <p className="text-sm font-medium text-olive">{state.success}</p>
-      <dl className="mt-3 grid gap-1 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Name</dt>
-          <dd className="text-ink">{state.name}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Email</dt>
-          <dd className="font-mono text-ink">{state.email}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Temporary password</dt>
-          <dd className="font-mono text-ink">{state.password}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Role</dt>
-          <dd className="text-ink">{state.role ? roleLabel(state.role) : ""}</dd>
-        </div>
-      </dl>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(blob);
-              setCopied(true);
-            } catch {
-              setCopied(false);
-            }
-          }}
-        >
-          <Copy className="h-4 w-4" />
-          {copied ? "Copied" : "Copy credentials"}
-        </Button>
-        <form action={skipOnboardingTeam}>
-          <Button type="submit" size="sm">
-            Continue
-          </Button>
-        </form>
-      </div>
     </div>
   );
 }
