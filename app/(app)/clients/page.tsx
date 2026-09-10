@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireShop } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatShopDate } from "@/lib/dates";
-import { formatPhone, parseTags, tagLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
+import { ClientList } from "@/components/client-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/field";
 
 export const metadata: Metadata = { title: "Clients" };
@@ -34,6 +32,11 @@ export default async function ClientsPage({
           }
         : {}),
     },
+    include: {
+      _count: {
+        select: { appointments: { where: { shopId: shop.id } } },
+      },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -41,7 +44,7 @@ export default async function ClientsPage({
     <div className="grid gap-6">
       <PageHeader
         title="Clients"
-        description="The book of people who sit in the chair."
+        description="The book of people who sit in the chair. Open a row for their card and every booking."
         actions={
           <Button asChild>
             <Link href="/clients/new">Add client</Link>
@@ -76,44 +79,7 @@ export default async function ClientsPage({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-line bg-surface">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-line bg-paper/80 text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="hidden px-4 py-3 font-medium sm:table-cell">Contact</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">Tags</th>
-                <th className="px-4 py-3 font-medium">Last visit</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {clients.map((client) => (
-                <tr key={client.id} className="hover:bg-paper/70">
-                  <td className="px-4 py-3">
-                    <Link href={`/clients/${client.id}`} className="font-medium text-ink">
-                      {client.name}
-                    </Link>
-                    <p className="text-muted sm:hidden">{client.phone ? formatPhone(client.phone) : "—"}</p>
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted sm:table-cell">
-                    <p>{client.phone ? formatPhone(client.phone) : "—"}</p>
-                    <p>{client.email || ""}</p>
-                  </td>
-                  <td className="hidden px-4 py-3 md:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {parseTags(client.tags).map((tag) => (
-                        <Badge key={tag}>{tagLabel(tag)}</Badge>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">
-                    {client.lastVisit ? formatShopDate(client.lastVisit, shop.timezone) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ClientList clients={clients} timezone={shop.timezone} />
       )}
     </div>
   );
