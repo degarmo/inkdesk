@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { calendarPeriodStarts, dayBounds, dayKeyInZone, groupByShopDay, shopTodayKey } from "./dates";
+import { calendarPeriodBounds, calendarPeriodStarts, dayBounds, dayKeyInZone, groupByShopDay } from "./dates";
 
 describe("calendarPeriodStarts", () => {
   it("uses shop-local midnight for day, Sunday week, month, and year", () => {
@@ -57,8 +57,17 @@ describe("dayBounds", () => {
   });
 });
 
-describe("shopTodayKey", () => {
-  it("returns a yyyy-MM-dd key", () => {
-    assert.match(shopTodayKey("America/Los_Angeles"), /^\d{4}-\d{2}-\d{2}$/);
+describe("calendarPeriodBounds", () => {
+  it("uses shop-local today, Sunday week start, month, and year", () => {
+    const tz = "America/Los_Angeles";
+    // Thursday 2:00 AM PDT on Sep 10, 2026
+    const now = new Date("2026-09-10T09:00:00.000Z");
+    const periods = calendarPeriodBounds(tz, now);
+
+    assert.equal(dayKeyInZone(periods.day.start, tz), "2026-09-10");
+    assert.equal(dayKeyInZone(periods.week.start, tz), "2026-09-06");
+    assert.equal(dayKeyInZone(periods.month.start, tz), "2026-09-01");
+    assert.equal(dayKeyInZone(periods.year.start, tz), "2026-01-01");
+    assert.equal(dayKeyInZone(periods.day.end, tz), "2026-09-10");
   });
 });

@@ -19,8 +19,9 @@ export function EarningsWindowCards({ windows }: { windows: EarningsWindows }) {
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted">
-        Big number is your net after the parlor usage fee ({rate}). Gross is succeeded Checkout on
-        your chair. Owner and admin still see shop-wide collected.
+        Big number is your net after the parlor usage fee ({rate}), taken out of your gross for space
+        and products — not Inkdesk billing. Gross is succeeded Checkout on your chair. Owner and admin
+        see shop-wide client payments and the parlor take.
       </p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard icon={Wallet} label="Today" value={formatMoney(windows.day.netCents)} hint={hint(windows.day)} />

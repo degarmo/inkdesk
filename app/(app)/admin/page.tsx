@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { subDays } from "date-fns";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, shopTodayKey } from "@/lib/dates";
 import { formatMoney } from "@/lib/utils";
+import { USAGE_FEE_OWNER_INTRO, formatUsageFeePercent, splitGrossCents, usageFeePercentNumber } from "@/lib/usage-fee";
+import { loadEarningsPeriods } from "@/lib/earnings";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { UsageFeeMoneySection } from "@/components/usage-fee-money";
 import { stripeConfigured, shopStripeCredentials } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Admin" };
@@ -17,8 +21,10 @@ export default async function AdminOverviewPage() {
   const { start, end } = dayBounds(todayKey, shop.timezone);
   const stripeReady = stripeConfigured(shop);
   const stripeSource = shopStripeCredentials(shop)?.source;
+  const usageFeePercent = usageFeePercentNumber(shop.usageFeePercent);
+  const d30 = subDays(new Date(), 30);
 
-  const [users, todays, unpaid, payments] = await Promise.all([
+  const [users, todays, unpaid, payments, revenue30, earnings] = await Promise.all([
     prisma.user.findMany({ where: { shopId: shop.id }, orderBy: { createdAt: "asc" } }),
     prisma.appointment.count({ where: { shopId: shop.id, startAt: { gte: start, lte: end } } }),
     prisma.appointment.count({
@@ -34,16 +40,34 @@ export default async function AdminOverviewPage() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.payment.aggregate({
+      where: { shopId: shop.id, status: "succeeded", createdAt: { gte: d30 } },
+      _sum: { amountCents: true },
+    }),
+    loadEarningsPeriods({
+      shopId: shop.id,
+      timeZone: shop.timezone,
+      usageFeePercent,
+    }),
   ]);
 
   const activeUsers = users.filter((user) => user.active).length;
   const succeeded = payments.filter((payment) => payment.status === "succeeded");
+  const haul30 = splitGrossCents(revenue30._sum.amountCents ?? 0, usageFeePercent);
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Parlor admin"
         description={`${shop.name} · ${formatShopDate(new Date(), shop.timezone, "EEEE, MMMM d")}`}
+      />
+
+      <UsageFeeMoneySection
+        title="Parlor money"
+        intro={USAGE_FEE_OWNER_INTRO}
+        percent={usageFeePercent}
+        periods={earnings}
+        columns={{ gross: "Client payments", fee: "Usage fees from artists", net: "Net to artists" }}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -98,6 +122,21 @@ export default async function AdminOverviewPage() {
             </Button>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage fees from artists (30d)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-serif text-3xl text-ink">{formatMoney(haul30.shopTakeCents)}</p>
+            <p className="mt-1 text-sm text-muted">
+              {formatUsageFeePercent(usageFeePercent)} taken from artist earnings in the last 30 days for space and
+              products — not Inkdesk billing. Gross client payments {formatMoney(haul30.grossCents)}.
+            </p>
+            <Button asChild variant="ghost" className="mt-3 px-0">
+              <Link href="/admin/settings">Edit usage fee</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -114,14 +153,23 @@ export default async function AdminOverviewPage() {
             </p>
           ) : (
             <ul className="divide-y divide-line">
-              {payments.map((payment) => (
+              {payments.map((payment) => {
+                const split =
+                  payment.status === "succeeded"
+                    ? splitGrossCents(payment.amountCents, usageFeePercent)
+                    : null;
+                return (
                 <li key={payment.id} className="flex items-center justify-between py-3 text-sm">
                   <span className="text-ink">
                     {formatMoney(payment.amountCents)} · {payment.type} · {payment.status}
+                    {split
+                      ? ` · usage fee ${formatMoney(split.shopTakeCents)} / net ${formatMoney(split.artistShareCents)}`
+                      : ""}
                   </span>
                   <span className="text-muted">{formatShopDate(payment.createdAt, shop.timezone, "MMM d")}</span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
           {succeeded.length > 0 ? (
@@ -138,14 +186,15 @@ export default async function AdminOverviewPage() {
         <CardContent>
           <ul className="grid gap-1 text-sm text-muted">
             <li>
-              <span className="text-ink">Owner</span> — full parlor control, including users and Stripe keys.
+              <span className="text-ink">Owner</span> — full parlor control, including users, Stripe keys, and the usage fee.
             </li>
             <li>
               <span className="text-ink">Admin</span> — same Admin tools; cannot deactivate the last owner.
             </li>
             <li>
               <span className="text-ink">Staff</span> — clients, appointments, notes, and images. Own chair
-              earnings only (day / week / month / year). No shop GMV, no Settings, no adding artists, no /admin.
+              earnings only (day / week / month / year as gross → usage fee taken from those earnings → net). No shop
+              GMV, no Settings, no adding artists, no /admin.
             </li>
           </ul>
         </CardContent>

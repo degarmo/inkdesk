@@ -2,7 +2,7 @@ import { addDays, subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from "@/lib/constants";
 import { calendarPeriodStarts, type CalendarPeriod } from "@/lib/dates";
-import { grossFeeNet, usageFeePercentFromShop } from "@/lib/usage-fee";
+import { grossFeeNet, splitGrossCents, usageFeePercentFromShop } from "@/lib/usage-fee";
 
 const OPEN_DEPOSIT_STATUSES = ["scheduled", "completed"];
 
@@ -14,7 +14,11 @@ export type ArtistRow = {
   bookings: number;
   completed: number;
   estimatedCents: number;
+  estimatedShopTakeCents: number;
+  estimatedArtistShareCents: number;
   collectedCents: number;
+  shopTakeCents: number;
+  artistShareCents: number;
 };
 
 export async function shopAnalytics(shopId: string) {
@@ -36,6 +40,7 @@ export async function shopAnalytics(shopId: string) {
     serviceRows,
     artists,
     depositUniverse,
+    shopRow,
   ] = await Promise.all([
     prisma.payment.aggregate({
       where: { shopId, status: "succeeded" },
@@ -95,6 +100,10 @@ export async function shopAnalytics(shopId: string) {
       where: { shopId, depositCents: { gt: 0 } },
       _count: { _all: true },
     }),
+    prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { usageFeePercent: true },
+    }),
   ]);
 
   const statusCounts: Record<string, number> = {};
@@ -110,6 +119,10 @@ export async function shopAnalytics(shopId: string) {
   });
   const depositBooked = depositUniverse._count._all;
   const depositRate = depositBooked === 0 ? null : paidDeposits / depositBooked;
+  const usageFeePercent = usageFeePercentFromShop(shopRow);
+  const revenueAllSplit = splitGrossCents(revenueAll._sum.amountCents ?? 0, usageFeePercent);
+  const revenue7Split = splitGrossCents(revenue7._sum.amountCents ?? 0, usageFeePercent);
+  const revenue30Split = splitGrossCents(revenue30._sum.amountCents ?? 0, usageFeePercent);
 
   const artistRows: ArtistRow[] = artists.map((artist) => {
     let bookings = 0;
@@ -122,6 +135,8 @@ export async function shopAnalytics(shopId: string) {
       estimatedCents += appointment.depositCents;
       for (const payment of appointment.payments) collectedCents += payment.amountCents;
     }
+    const collected = splitGrossCents(collectedCents, usageFeePercent);
+    const estimated = splitGrossCents(estimatedCents, usageFeePercent);
     return {
       id: artist.id,
       name: artist.name,
@@ -129,8 +144,12 @@ export async function shopAnalytics(shopId: string) {
       active: artist.active,
       bookings,
       completed,
-      estimatedCents,
-      collectedCents,
+      estimatedCents: estimated.grossCents,
+      estimatedShopTakeCents: estimated.shopTakeCents,
+      estimatedArtistShareCents: estimated.artistShareCents,
+      collectedCents: collected.grossCents,
+      shopTakeCents: collected.shopTakeCents,
+      artistShareCents: collected.artistShareCents,
     };
   });
 
@@ -144,11 +163,18 @@ export async function shopAnalytics(shopId: string) {
 
   return {
     now,
-    revenueAllCents: revenueAll._sum.amountCents ?? 0,
+    usageFeePercent,
+    revenueAllCents: revenueAllSplit.grossCents,
+    shopTakeAllCents: revenueAllSplit.shopTakeCents,
+    artistShareAllCents: revenueAllSplit.artistShareCents,
     revenueAllCount: revenueAll._count._all,
-    revenue7Cents: revenue7._sum.amountCents ?? 0,
+    revenue7Cents: revenue7Split.grossCents,
+    shopTake7Cents: revenue7Split.shopTakeCents,
+    artistShare7Cents: revenue7Split.artistShareCents,
     revenue7Count: revenue7._count._all,
-    revenue30Cents: revenue30._sum.amountCents ?? 0,
+    revenue30Cents: revenue30Split.grossCents,
+    shopTake30Cents: revenue30Split.shopTakeCents,
+    artistShare30Cents: revenue30Split.artistShareCents,
     revenue30Count: revenue30._count._all,
     unpaidDepositCents: unpaidDeposits._sum.depositCents ?? 0,
     unpaidDepositCount: unpaidDeposits._count._all,
@@ -205,8 +231,7 @@ export const EMPTY_EARNINGS: EarningsWindows = {
 /**
  * Succeeded Checkout on this artist’s appointments in this parlor only.
  * Unlinked payments (no appointment) stay shop GMV and never appear here.
- * Gross is collected; fee is the parlor usage cut; net is the artist share.
- * `usageFeePercent` is 0 until Shop.usageFeePercent exists (separate PR).
+ * Gross is collected; fee is the parlor usage cut taken from that gross; net is the artist share.
  */
 export async function artistEarningsWindows(
   shopId: string,

@@ -173,6 +173,7 @@ class ParlorApiTests(TestCase):
         self.assertTrue(token)
         self.assertEqual(response.json()["user"]["email"], "demo@blackbird.ink")
         self.assertEqual(response.json()["user"]["shop"]["name"], "Blackbird Ink")
+        self.assertEqual(response.json()["user"]["shop"]["usageFeePercent"], 0)
 
         self.api.credentials(HTTP_AUTHORIZATION=f"Token {token}")
         listed = self.api.get("/api/clients/")

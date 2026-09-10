@@ -50,6 +50,31 @@ export function timeValueInZone(date: Date, timeZone: string) {
   return formatInTimeZone(date, timeZone, "HH:mm");
 }
 
+export type CalendarPeriodRange = {
+  key: CalendarPeriod;
+  label: string;
+  start: Date;
+  end: Date;
+};
+
+/** Shop-local today, this week (Sunday–Saturday), this month, and this year, all ending now. */
+export function calendarPeriodBounds(timeZone: string, now = new Date()): Record<CalendarPeriod, CalendarPeriodRange> {
+  const todayKey = formatInTimeZone(now, timeZone, "yyyy-MM-dd");
+  const zoned = toZonedTime(now, timeZone);
+  const end = dayBounds(todayKey, timeZone).end;
+
+  const weekStartKey = format(startOfWeek(zoned, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const monthStartKey = format(startOfMonth(zoned), "yyyy-MM-dd");
+  const yearStartKey = format(startOfYear(zoned), "yyyy-MM-dd");
+
+  return {
+    day: { key: "day", label: "Today", start: dayBounds(todayKey, timeZone).start, end },
+    week: { key: "week", label: "This week", start: dayBounds(weekStartKey, timeZone).start, end },
+    month: { key: "month", label: "This month", start: dayBounds(monthStartKey, timeZone).start, end },
+    year: { key: "year", label: "This year", start: dayBounds(yearStartKey, timeZone).start, end },
+  };
+}
+
 /**
  * Inclusive starts for shop-local calendar windows (Sunday-start week).
  * Payments with createdAt >= start count in that window through now.

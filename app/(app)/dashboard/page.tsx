@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, CreditCard, Percent, Wallet } from "lucide-react";
+import { CalendarClock, CreditCard, Percent } from "lucide-react";
 import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
@@ -8,9 +8,12 @@ import { formatMoney, formatPhone, parseTags, serviceLabel, tagLabel } from "@/l
 import { shopAnalytics, artistEarningsWindows, EMPTY_EARNINGS } from "@/lib/shop-metrics";
 import { findStaffArtist } from "@/lib/staff-artist";
 import { artistMatchHint } from "@/lib/artist-match";
+import { loadEarningsPeriods } from "@/lib/earnings";
+import { USAGE_FEE_OWNER_INTRO, formatUsageFeePercent, usageFeePercentFromShop } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard } from "@/components/metric-card";
 import { EarningsWindowCards } from "@/components/earnings-window-cards";
+import { UsageFeeMoneySection } from "@/components/usage-fee-money";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,46 +37,50 @@ export default async function DashboardPage({
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
   const elevated = isAdminRole(session.role);
-  const staffMatch = elevated
-    ? { artist: null, via: null }
-    : await findStaffArtist(shop.id, session);
-  const unpaidArtistFilter = elevated
-    ? {}
-    : { artistId: staffMatch.artist?.id ?? "__none__" };
+  const usageFeePercent = usageFeePercentFromShop(shop);
+  const staffMatch = elevated ? { artist: null, via: null } : await findStaffArtist(shop.id, session);
+  const unpaidArtistFilter = elevated ? {} : { artistId: staffMatch.artist?.id ?? "__none__" };
 
-  const [todays, unpaid, recentClients, stats, earnings, artistCount, extraUserCount, clientCount, appointmentCount] =
+  const [todays, unpaid, recentClients, stats, staffEarnings, parlorEarnings, artistCount, extraUserCount, clientCount, appointmentCount] =
     await Promise.all([
-    prisma.appointment.findMany({
-      where: { shopId: shop.id, startAt: { gte: start, lte: end } },
-      include: { client: true, artist: true },
-      orderBy: { startAt: "asc" },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        shopId: shop.id,
-        depositPaid: false,
-        depositCents: { gt: 0 },
-        status: { in: ["scheduled", "completed"] },
-        ...unpaidArtistFilter,
-      },
-      include: { client: true, artist: true },
-      orderBy: { startAt: "asc" },
-      take: 8,
-    }),
-    prisma.client.findMany({
-      where: { shopId: shop.id },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-    }),
-    elevated ? shopAnalytics(shop.id) : Promise.resolve(null),
-    staffMatch.artist
-      ? artistEarningsWindows(shop.id, staffMatch.artist.id, shop.timezone, shop)
-      : Promise.resolve(EMPTY_EARNINGS),
-    prisma.artist.count({ where: { shopId: shop.id } }),
-    prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),
-    prisma.client.count({ where: { shopId: shop.id } }),
-    prisma.appointment.count({ where: { shopId: shop.id } }),
-  ]);
+      prisma.appointment.findMany({
+        where: { shopId: shop.id, startAt: { gte: start, lte: end } },
+        include: { client: true, artist: true },
+        orderBy: { startAt: "asc" },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          shopId: shop.id,
+          depositPaid: false,
+          depositCents: { gt: 0 },
+          status: { in: ["scheduled", "completed"] },
+          ...unpaidArtistFilter,
+        },
+        include: { client: true, artist: true },
+        orderBy: { startAt: "asc" },
+        take: 8,
+      }),
+      prisma.client.findMany({
+        where: { shopId: shop.id },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      elevated ? shopAnalytics(shop.id) : Promise.resolve(null),
+      staffMatch.artist
+        ? artistEarningsWindows(shop.id, staffMatch.artist.id, shop.timezone, shop)
+        : Promise.resolve(EMPTY_EARNINGS),
+      elevated
+        ? loadEarningsPeriods({
+            shopId: shop.id,
+            timeZone: shop.timezone,
+            usageFeePercent,
+          })
+        : Promise.resolve(null),
+      prisma.artist.count({ where: { shopId: shop.id } }),
+      prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),
+      prisma.client.count({ where: { shopId: shop.id } }),
+      prisma.appointment.count({ where: { shopId: shop.id } }),
+    ]);
 
   const checklist = buildSetupChecklist({
     artistCount,
@@ -87,8 +94,7 @@ export default async function DashboardPage({
   );
   const leftoverStripe = checklist.some((item) => item.id === "stripe" && !item.done);
   const showChecklist =
-    isAdminRole(session.role) &&
-    (setup === "1" || leftoverCore || (leftoverStripe && appointmentCount === 0));
+    elevated && (setup === "1" || leftoverCore || (leftoverStripe && appointmentCount === 0));
 
   const prep = await prepReadyIds(
     shop.id,
@@ -124,14 +130,30 @@ export default async function DashboardPage({
         />
       ) : null}
 
+      {elevated && parlorEarnings ? (
+        <UsageFeeMoneySection
+          title="Parlor money"
+          intro={USAGE_FEE_OWNER_INTRO}
+          percent={usageFeePercent}
+          periods={parlorEarnings}
+          columns={{ gross: "Client payments", fee: "Usage fees from artists", net: "Net to artists" }}
+        />
+      ) : (
+        <div className="grid gap-3">
+          <p className="text-sm text-muted">{artistMatchHint(staffMatch.via, staffMatch.artist?.name ?? null)}</p>
+          {staffMatch.artist ? (
+            <EarningsWindowCards windows={staffEarnings} />
+          ) : (
+            <EmptyState
+              title="Your earnings will show here"
+              body={`This login is not tied to a roster artist yet. When it is, you will see your gross, the parlor’s ${formatUsageFeePercent(usageFeePercent)} usage fee taken from that gross, and your net. That fee is for space and products — not Inkdesk billing.`}
+            />
+          )}
+        </div>
+      )}
+
       {elevated && stats ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            icon={Wallet}
-            label="Revenue (30d)"
-            value={formatMoney(stats.revenue30Cents)}
-            hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
-          />
           <MetricCard
             icon={CreditCard}
             label="Unpaid deposits"
@@ -151,12 +173,7 @@ export default async function DashboardPage({
             hint="Scheduled in the next 7 days"
           />
         </div>
-      ) : (
-        <div className="grid gap-3">
-          <p className="text-sm text-muted">{artistMatchHint(staffMatch.via, staffMatch.artist?.name ?? null)}</p>
-          <EarningsWindowCards windows={earnings} />
-        </div>
-      )}
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

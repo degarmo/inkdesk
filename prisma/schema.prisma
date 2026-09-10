@@ -19,6 +19,8 @@ model Shop {
   stripeWebhookSecret  String        @default("")
   onboardingCompletedAt DateTime?
   onboardingStep        Int           @default(1)
+  /** Parlor cut of artist usage of space/products. 0–100, one decimal. Not Inkdesk billing. */
+  usageFeePercent      Decimal       @default(0) @db.Decimal(5, 1)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   users        User[]

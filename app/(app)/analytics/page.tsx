@@ -5,11 +5,14 @@ import { isAdminRole, requireShop } from "@/lib/auth";
 import { shopAnalytics, artistEarningsWindows, EMPTY_EARNINGS } from "@/lib/shop-metrics";
 import { findStaffArtist } from "@/lib/staff-artist";
 import { artistMatchHint } from "@/lib/artist-match";
+import { loadEarningsPeriods } from "@/lib/earnings";
 import { formatMoney, serviceLabel } from "@/lib/utils";
+import { USAGE_FEE_OWNER_INTRO, formatUsageFeePercent, usageFeePercentFromShop } from "@/lib/usage-fee";
 import { APPOINTMENT_STATUSES } from "@/lib/constants";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard, RatioBar } from "@/components/metric-card";
 import { EarningsWindowCards } from "@/components/earnings-window-cards";
+import { UsageFeeMoneySection } from "@/components/usage-fee-money";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/field";
@@ -23,6 +26,8 @@ function rateLabel(part: number, total: number) {
 
 export default async function AnalyticsPage() {
   const { shop, session } = await requireShop();
+  const usageFeePercent = usageFeePercentFromShop(shop);
+
   if (!isAdminRole(session.role)) {
     const match = await findStaffArtist(shop.id, session);
     const windows = match.artist
@@ -33,7 +38,7 @@ export default async function AnalyticsPage() {
       <div className="grid gap-6">
         <PageHeader
           title="Your earnings"
-          description={`${shop.name} · day / week / month / year. Gross → parlor usage fee → your net. Not shop GMV.`}
+          description={`${shop.name} · day / week / month / year. Gross → parlor usage fee taken from your earnings → your net. That fee is for space and products — not Inkdesk billing.`}
           actions={
             <Button asChild variant="outline">
               <Link href="/dashboard">Dashboard</Link>
@@ -53,14 +58,21 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const stats = await shopAnalytics(shop.id);
+  const [stats, parlorEarnings] = await Promise.all([
+    shopAnalytics(shop.id),
+    loadEarningsPeriods({
+      shopId: shop.id,
+      timeZone: shop.timezone,
+      usageFeePercent,
+    }),
+  ]);
   const serviceMax = Math.max(1, ...stats.topServices.map((row) => row.count));
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Analytics"
-        description={`${shop.name} only. Numbers never include another parlor. Full session price is not a field — estimated artist revenue is the deposit book on that artist’s appointments; collected is succeeded Checkout on those rows.`}
+        description={`${shop.name} only. Numbers never include another parlor. Client payments are the gross. The parlor usage fee comes out of artist earnings for space and products — not Inkdesk billing. Estimated is the deposit book on that artist’s appointments, with the same split.`}
         actions={
           <Button asChild variant="outline">
             <Link href="/dashboard">Dashboard</Link>
@@ -68,13 +80,15 @@ export default async function AnalyticsPage() {
         }
       />
 
+      <UsageFeeMoneySection
+        title="Parlor money"
+        intro={USAGE_FEE_OWNER_INTRO}
+        percent={usageFeePercent}
+        periods={parlorEarnings}
+        columns={{ gross: "Client payments", fee: "Usage fees from artists", net: "Net to artists" }}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={CreditCard}
-          label="Revenue"
-          value={formatMoney(stats.revenueAllCents)}
-          hint={`${stats.revenueAllCount} succeeded all time · ${formatMoney(stats.revenue7Cents)} last 7d · ${formatMoney(stats.revenue30Cents)} last 30d`}
-        />
         <MetricCard
           icon={CreditCard}
           label="Unpaid deposits"
@@ -97,9 +111,6 @@ export default async function AnalyticsPage() {
           value={String(stats.upcomingWeek)}
           hint="Scheduled starts in the next 7 days"
         />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Users}
           label="Clients"
@@ -135,79 +146,82 @@ export default async function AnalyticsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Per artist</CardTitle>
-              <CardDescription>
-                Collected = succeeded payments on that artist’s appointments. Estimated = deposit amounts on those
-                bookings (not remaining balance).
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {stats.artistRows.length === 0 ? (
-              <EmptyState title="No artists" body="Add an artist on the roster to attribute chairs." />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[32rem] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
-                      <th className="py-2 pr-3 font-medium">Artist</th>
-                      <th className="py-2 pr-3 font-medium">Bookings</th>
-                      <th className="py-2 pr-3 font-medium">Completed</th>
-                      <th className="py-2 pr-3 font-medium">Estimated</th>
-                      <th className="py-2 font-medium">Collected</th>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Per artist</CardTitle>
+            <CardDescription>
+              Gross = succeeded payments on that artist’s appointments. Usage fee is taken out of that gross for parlor
+              space and products ({formatUsageFeePercent(usageFeePercent)}) — not Inkdesk billing. Net is what remains
+              for the artist. Estimated = deposit amounts on those bookings (same split; not remaining balance).
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {stats.artistRows.length === 0 ? (
+            <EmptyState title="No artists" body="Add an artist on the roster to attribute chairs." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
+                    <th className="py-2 pr-3 font-medium">Artist</th>
+                    <th className="py-2 pr-3 font-medium">Bookings</th>
+                    <th className="py-2 pr-3 font-medium">Completed</th>
+                    <th className="py-2 pr-3 font-medium">Estimated</th>
+                    <th className="py-2 pr-3 font-medium">Gross</th>
+                    <th className="py-2 pr-3 font-medium">Usage fee taken</th>
+                    <th className="py-2 font-medium">Net to artist</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.artistRows.map((row) => (
+                    <tr key={row.id} className="border-b border-line last:border-0">
+                      <td className="py-3 pr-3">
+                        <p className="font-medium text-ink">{row.name}</p>
+                        <p className="text-xs text-muted">
+                          {row.specialty || "No specialty"}
+                          {row.active ? "" : " · inactive"}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-3">{row.bookings}</td>
+                      <td className="py-3 pr-3">{row.completed}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.estimatedCents)}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.collectedCents)}</td>
+                      <td className="py-3 pr-3">{formatMoney(row.shopTakeCents)}</td>
+                      <td className="py-3">{formatMoney(row.artistShareCents)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {stats.artistRows.map((row) => (
-                      <tr key={row.id} className="border-b border-line last:border-0">
-                        <td className="py-3 pr-3">
-                          <p className="font-medium text-ink">{row.name}</p>
-                          <p className="text-xs text-muted">
-                            {row.specialty || "No specialty"}
-                            {row.active ? "" : " · inactive"}
-                          </p>
-                        </td>
-                        <td className="py-3 pr-3">{row.bookings}</td>
-                        <td className="py-3 pr-3">{row.completed}</td>
-                        <td className="py-3 pr-3">{formatMoney(row.estimatedCents)}</td>
-                        <td className="py-3">{formatMoney(row.collectedCents)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Top services</CardTitle>
-              <CardDescription>Consult, tattoo session, and touch-up counts on this parlor.</CardDescription>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {stats.topServices.length === 0 ? (
-              <p className="text-sm text-muted">No bookings yet.</p>
-            ) : (
-              stats.topServices.map((row) => (
-                <RatioBar
-                  key={row.value}
-                  label={serviceLabel(row.value)}
-                  value={row.count}
-                  max={serviceMax}
-                  right={`${row.count}`}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Top services</CardTitle>
+            <CardDescription>Consult, tattoo session, and touch-up counts on this parlor.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {stats.topServices.length === 0 ? (
+            <p className="text-sm text-muted">No bookings yet.</p>
+          ) : (
+            stats.topServices.map((row) => (
+              <RatioBar
+                key={row.value}
+                label={serviceLabel(row.value)}
+                value={row.count}
+                max={serviceMax}
+                right={`${row.count}`}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

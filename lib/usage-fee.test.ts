@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { usageFeeSchema } from "./validations";
 import {
   formatUsageFeePercent,
   grossFeeNet,
@@ -79,5 +80,19 @@ describe("formatUsageFeePercent", () => {
   it("drops a trailing .0", () => {
     assert.equal(formatUsageFeePercent(20), "20%");
     assert.equal(formatUsageFeePercent(12.5), "12.5%");
+  });
+});
+
+describe("usageFeeSchema", () => {
+  it("accepts 0–100 with one decimal", () => {
+    assert.equal(usageFeeSchema.parse({ usageFeePercent: "0" }).usageFeePercent, 0);
+    assert.equal(usageFeeSchema.parse({ usageFeePercent: "20" }).usageFeePercent, 20);
+    assert.equal(usageFeeSchema.parse({ usageFeePercent: "12.5" }).usageFeePercent, 12.5);
+  });
+
+  it("rejects out of range and extra decimals", () => {
+    assert.equal(usageFeeSchema.safeParse({ usageFeePercent: "-1" }).success, false);
+    assert.equal(usageFeeSchema.safeParse({ usageFeePercent: "100.1" }).success, false);
+    assert.equal(usageFeeSchema.safeParse({ usageFeePercent: "12.55" }).success, false);
   });
 });

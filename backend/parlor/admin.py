@@ -28,7 +28,14 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(Shop)
 class ShopAdmin(ReadOnlyAdmin):
-    list_display = ("id", "name", "timezone", "onboarding_step", "onboarding_completed_at")
+    list_display = (
+        "id",
+        "name",
+        "timezone",
+        "usage_fee_percent",
+        "onboarding_step",
+        "onboarding_completed_at",
+    )
     search_fields = ("name", "id")
 
 

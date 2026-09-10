@@ -4,9 +4,12 @@ export const USAGE_FEE_MIN = 0;
 export const USAGE_FEE_MAX = 100;
 
 export const USAGE_FEE_HELP =
-  "This parlor’s cut of artist usage of space and products (chair time, inks, and shop supplies). It is not Inkdesk billing and not a Stripe Connect platform fee.";
+  "Taken out of each artist’s earnings for use of the parlor’s space and products (chair time, inks, and shop supplies). It is not added on the client’s bill. It is not Inkdesk billing and not a Stripe Connect platform fee.";
 
 export const USAGE_FEE_STAFF_NOTE = "Owner and admin set this. Staff cannot change it.";
+
+export const USAGE_FEE_OWNER_INTRO =
+  "Client payments are the gross. The parlor usage fee comes out of artist earnings for space and products — not Inkdesk billing. What remains is the artists’ net.";
 
 export function usageFeePercentNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -36,6 +39,10 @@ export function formatUsageFeePercent(percent: number) {
   return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
 }
 
+export function artistEarningsIntro(artistName: string, percent: number) {
+  return `Earnings on chairs booked to ${artistName}. The parlor takes ${formatUsageFeePercent(percent)} out of that gross for space and products. The rest is yours. This is not Inkdesk billing.`;
+}
+
 export function usageFeePercentInput(percent: number) {
   const rounded = roundUsageFeePercent(usageFeePercentNumber(percent));
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
@@ -59,7 +66,7 @@ export function splitGrossCents(grossCents: number, usageFeePercent: number) {
   };
 }
 
-/** Staff earnings labels. Same split as shopTake/artistShare; fee is 0% until Shop.usageFeePercent exists. */
+/** Staff earnings labels. Same split as shopTake / artistShare. */
 export function grossFeeNet(grossCents: number, usageFeePercent: number) {
   const split = splitGrossCents(grossCents, usageFeePercent);
   return {
@@ -69,7 +76,7 @@ export function grossFeeNet(grossCents: number, usageFeePercent: number) {
   };
 }
 
-/** Reads Shop.usageFeePercent when present (other PR); otherwise 0. */
+/** Reads Shop.usageFeePercent; 0 if the field is missing. */
 export function usageFeePercentFromShop(shop: object | null | undefined) {
   if (!shop || !("usageFeePercent" in shop)) return 0;
   return usageFeePercentNumber((shop as { usageFeePercent?: unknown }).usageFeePercent ?? 0);

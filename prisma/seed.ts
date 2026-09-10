@@ -82,6 +82,7 @@ async function main() {
       hoursClose: "20:00",
       onboardingCompletedAt: new Date(),
       onboardingStep: 6,
+      usageFeePercent: 20,
     },
   });
 
@@ -519,6 +520,7 @@ async function main() {
       hoursClose: "21:00",
       onboardingCompletedAt: new Date(),
       onboardingStep: 6,
+      usageFeePercent: 15,
     },
   });
   const lenaUser = await prisma.user.create({

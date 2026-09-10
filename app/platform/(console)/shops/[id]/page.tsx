@@ -6,6 +6,7 @@ import { windowStart } from "@/lib/platform-metrics";
 import { prisma } from "@/lib/prisma";
 import { formatShopDate, formatShopDateTime } from "@/lib/dates";
 import { formatMoney, paymentStatusLabel, roleLabel } from "@/lib/utils";
+import { formatUsageFeePercent, splitGrossCents, usageFeePercentNumber } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default async function PlatformShopDetailPage({
   if (!shop) notFound();
 
   const d30 = windowStart(30);
+  const usageFeePercent = usageFeePercentNumber(shop.usageFeePercent);
   const succeeded30 = await prisma.payment.aggregate({
     where: { shopId: shop.id, status: "succeeded", createdAt: { gte: d30 } },
     _count: { _all: true },
@@ -85,8 +87,13 @@ export default async function PlatformShopDetailPage({
             <span className="text-ink">Hours:</span> {shop.hoursOpen} – {shop.hoursClose}
           </p>
           <p>
+            <span className="text-ink">Parlor usage fee:</span> {formatUsageFeePercent(usageFeePercent)} taken from
+            artist earnings for space and products (not an Inkdesk platform fee)
+          </p>
+          <p>
             <span className="text-ink">Succeeded payments (30d):</span>{" "}
-            {formatMoney(succeeded30._sum.amountCents ?? 0)} · {succeeded30._count._all} rows
+            {formatMoney(succeeded30._sum.amountCents ?? 0)} · {succeeded30._count._all} rows · shop take{" "}
+            {formatMoney(splitGrossCents(succeeded30._sum.amountCents ?? 0, usageFeePercent).shopTakeCents)}
           </p>
         </CardContent>
       </Card>

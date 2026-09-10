@@ -20,6 +20,13 @@ class ShopPublicSerializer(serializers.ModelSerializer):
     hoursClose = serializers.CharField(source="hours_close", read_only=True)
     onboardingCompletedAt = serializers.DateTimeField(source="onboarding_completed_at", read_only=True)
     onboardingStep = serializers.IntegerField(source="onboarding_step", read_only=True)
+    usageFeePercent = serializers.DecimalField(
+        source="usage_fee_percent",
+        max_digits=5,
+        decimal_places=1,
+        coerce_to_string=False,
+        read_only=True,
+    )
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
 
@@ -33,6 +40,7 @@ class ShopPublicSerializer(serializers.ModelSerializer):
             "hoursClose",
             "onboardingCompletedAt",
             "onboardingStep",
+            "usageFeePercent",
             "createdAt",
             "updatedAt",
         )

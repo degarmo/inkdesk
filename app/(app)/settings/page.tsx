@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { reopenOnboarding } from "@/actions/onboarding";
+import { usageFeePercentFromShop } from "@/lib/usage-fee";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
+import { UsageFeeForm } from "@/components/forms/usage-fee-form";
 import { FlashNotice } from "@/components/flash-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,16 +15,16 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; usageFee?: string }>;
 }) {
   const { shop } = await requireAdmin();
-  const { saved } = await searchParams;
+  const { saved, usageFee } = await searchParams;
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Settings"
-        description="Shop identity and the clock the calendar uses. Owners and admins only."
+        description="Shop identity, hours, and the parlor usage fee taken from artist earnings. Owners and admins only."
       />
 
       <Card className="max-w-2xl">
@@ -64,6 +66,20 @@ export default async function SettingsPage({
         </CardContent>
       </Card>
 
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Usage fee</CardTitle>
+          <CardDescription>
+            The parlor’s cut of artist earnings for space and products — taken out of the artist, not added on the
+            client. Not Inkdesk billing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <FlashNotice saved={usageFee} message="Usage fee saved." />
+          <UsageFeeForm usageFeePercent={usageFeePercentFromShop(shop)} canEdit />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 max-w-2xl">
         <Card>
           <CardHeader>
@@ -71,8 +87,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              A public booking page is out of scope for this trial. When it lands, clients will pick
-              an artist and an open slot without emailing the shop.
+              A public booking page is out of scope for this trial. When it lands, clients will pick an artist and an
+              open slot without emailing the shop.
             </p>
           </CardContent>
         </Card>
@@ -82,8 +98,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              Each parlor connects its own Stripe account under Admin → Settings. Checkout uses that shop&apos;s
-              secret key — not a shared platform account. Until keys are saved, pay buttons read{" "}
+              Each parlor connects its own Stripe account under Admin → Settings. Checkout uses that shop&apos;s secret
+              key — not a shared platform account. Until keys are saved, pay buttons read{" "}
               <span className="text-ink">Connect Stripe in Admin → Settings</span>.
             </p>
           </CardContent>
@@ -94,8 +110,8 @@ export default async function SettingsPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-muted">
-              Reminder texts for tomorrow&apos;s chairs are a planned follow-up. For now, the day
-              list on the dashboard is the source of truth.
+              Reminder texts for tomorrow&apos;s chairs are a planned follow-up. For now, the day list on the dashboard
+              is the source of truth.
             </p>
           </CardContent>
         </Card>

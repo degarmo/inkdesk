@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/secrets";
-import { settingsSchema, stripeSettingsSchema, type ActionState } from "@/lib/validations";
+import { settingsSchema, stripeSettingsSchema, usageFeeSchema, type ActionState } from "@/lib/validations";
 
 export async function updateSettings(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { session } = await requireAdmin();
@@ -91,4 +91,29 @@ export async function updateStripeSettings(_prev: ActionState, formData: FormDat
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
   redirect("/admin/settings?stripe=1");
+}
+
+export async function updateUsageFee(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { session } = await requireAdmin();
+  const parsed = usageFeeSchema.safeParse({
+    usageFeePercent: formData.get("usageFeePercent"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Enter a usage fee from 0 to 100." };
+  }
+
+  await prisma.shop.update({
+    where: { id: session.shopId },
+    data: { usageFeePercent: parsed.data.usageFeePercent },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/admin/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/analytics");
+  revalidatePath("/admin");
+  revalidatePath("/admin/payments");
+  const next = String(formData.get("redirectTo") ?? "/settings");
+  const path = next.startsWith("/admin/settings") ? "/admin/settings?usageFee=1" : "/settings?usageFee=1";
+  redirect(path);
 }
