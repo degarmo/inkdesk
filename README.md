@@ -14,9 +14,9 @@ Shop-floor CRM for tattoo parlors. One shop per account, with owner / admin / st
 - Appointments: day list with a week strip; consult / tattoo session / touch-up; scheduled, completed, cancelled, no-show; deposit amount and paid/unpaid.
 - Session notes on a booking or a client card: design, placement, ink/colors, aftercare given.
 - **References / prep art:** JPEG, PNG, or WebP attachments on a client card or a booking. Flag `prepForVisit` to badge today’s chairs. Soft-delete hides them from galleries.
-- Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge, collected / shop usage fee / artist share / deposit / upcoming-week cards.
-- **Analytics (`/analytics`):** parlor-scoped collected (all / 7 / 30d), shop usage fee take, artist share, unpaid deposits, per-artist bookings and collected vs estimated (deposit book) with the shop usage split, booking mix, new clients, deposit collection rate, upcoming week, top services. All shop roles. Never includes another parlor.
-- Settings: shop name, timezone, business hours reminder, and the parlor **usage fee** percent (owner/admin write). Owner/admin can re-open the setup guide.
+- Dashboard: today’s chairs, unpaid deposits, recent clients, prep-ready badge. Owner/admin see parlor money (client payments, usage fees taken from artists, net to artists) for today / this week / this month / this year. Staff see their own gross, usage fee taken, and net when the login is tied to a roster artist.
+- **Analytics (`/analytics`):** same earnings split (shop-wide for owner/admin; own row for staff), unpaid deposits, per-artist bookings and gross vs estimated (deposit book) with the usage-fee split, booking mix, new clients, deposit collection rate, upcoming week, top services. Never includes another parlor.
+- Settings: shop name, timezone, business hours reminder, and the parlor **usage fee** percent (owner/admin write). The fee comes out of artist earnings. Owner/admin can re-open the setup guide.
 - **Admin (`/admin`):** parlor owners and admins — users, parlor settings, appointment oversight, payment history for **that shop**.
 - **Platform (`/platform`):** Inkdesk operators over **all shops**. Separate `PlatformUser` table and cookie. Shop logins cannot open it. Metrics include shops, active shops, signups, conversion (shops with ≥1 booking), churn proxy (no login 30d), GMV, bookings, clients, and first-party visits (7/30d, rough sessions, top paths).
 - **First-party visits:** layout beacon `POST /api/visits` writes `PageView` rows (path, optional shopId, visitor cookie, surface). No Google Analytics.
@@ -29,7 +29,7 @@ Not in this release. Inkdesk does **not** take a platform cut, does **not** onbo
 
 Each parlor pastes its own Stripe keys for client deposits (or skips and takes cash). Platform subscription billing, Connect destination charges, and application fees are the next billing milestone — do not treat per-shop key paste as Connect.
 
-**Parlor usage fee (this release).** Owners and admins set a shop-wide usage percent in Settings. That is the parlor’s cut of artist usage of space and products. It is not Inkdesk SaaS billing and not a Stripe Connect platform fee. Staff cannot write the field (`requireAdmin`). Dashboard, analytics, and admin payment views split succeeded checkout into shop take and artist share at that rate.
+**Parlor usage fee (this release).** Owners and admins set a shop-wide usage percent in Settings. That percent is taken **out of each artist’s earnings** for use of the parlor’s space and products. It is not added on the client’s bill, not Inkdesk SaaS billing, and not a Stripe Connect platform fee. Staff cannot write the field (`requireAdmin`). Owner/admin dashboards show shop-wide client payments, usage fees collected from artists, and net remaining to artists (today / this week / this month / this year). Staff dashboards show that artist’s own gross, fee taken, and net when the login is linked to a roster artist (`Artist.userId`, with a unique name-match fallback).
 
 **Out of scope for v1**
 
@@ -48,9 +48,9 @@ Each parlor pastes its own Stripe keys for client deposits (or skips and takes c
 
 | Role | Shop floor | Analytics (`/analytics`) | Shop Admin (`/admin`) | Platform (`/platform`) |
 | --- | --- | --- | --- | --- |
-| Owner | Yes | Yes — this parlor only; shop haul includes the usage fee take | Yes — users, parlor Stripe keys, usage fee, appointments, payments | No |
-| Admin | Yes | Yes — this parlor only; shop haul includes the usage fee take | Same Admin tools; cannot deactivate the last owner | No |
-| Staff | Yes | Yes — this parlor only (same shop-wide numbers, including the usage fee split) | No. `/admin` redirects to the dashboard. Cannot change the usage fee. | No |
+| Owner | Yes | Yes — this parlor only; shop-wide usage fees taken from artists | Yes — users, parlor Stripe keys, usage fee, appointments, payments | No |
+| Admin | Yes | Yes — this parlor only; shop-wide usage fees taken from artists | Same Admin tools; cannot deactivate the last owner | No |
+| Staff | Yes | Yes — this parlor only; money is their own gross / fee taken / net | No. `/admin` redirects to the dashboard. Cannot change the usage fee. | No |
 | Platform operator | No | No | No | Yes — instance metrics, traffic, every shop, bookings and payments pulse |
 
 ## Stripe: each parlor brings its own account
@@ -199,7 +199,7 @@ Production-style start (what Render runs): `bash start.sh` (`migrate` then gunic
 
 ### Schema ownership (Phase 1)
 
-Prisma **owns** domain tables: `Shop`, `User`, `PlatformUser`, `Artist`, `Client`, `Appointment`, `SessionNote`, `ClientImage`, `Payment`, `IdempotencyKey`, `PageView` (including `Shop.onboardingCompletedAt` / `onboardingStep` / `usageFeePercent`). Django maps them with `managed = False` and inspectdb-style `db_table` / `db_column` names (PascalCase tables, camelCase columns). `python manage.py migrate` will not CREATE or ALTER those tables.
+Prisma **owns** domain tables: `Shop`, `User`, `PlatformUser`, `Artist`, `Client`, `Appointment`, `SessionNote`, `ClientImage`, `Payment`, `IdempotencyKey`, `PageView` (including `Shop.onboardingCompletedAt` / `onboardingStep` / `usageFeePercent` and `Artist.userId`). Django maps them with `managed = False` and inspectdb-style `db_table` / `db_column` names (PascalCase tables, camelCase columns). `python manage.py migrate` will not CREATE or ALTER those tables.
 
 Django **owns** `django_*` system tables and `django_shop_auth_token` (API tokens for parlor users). Those live in the PostgreSQL schema `django`, not `public`, so a first-time `prisma migrate deploy` still sees an empty public schema if the API boots first (Prisma P3005). Token rows have no database-level FK to `User`. Unmanaged models still read `public."Shop"` via `search_path=django,public`.
 

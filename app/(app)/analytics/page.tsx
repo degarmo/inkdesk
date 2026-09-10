@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, CreditCard, Percent, Store, Users, Wallet } from "lucide-react";
+import { CalendarDays, CreditCard, Percent, Users } from "lucide-react";
 import { requireShop } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { shopAnalytics } from "@/lib/shop-metrics";
 import { formatMoney, serviceLabel } from "@/lib/utils";
-import { formatUsageFeePercent } from "@/lib/usage-fee";
+import {
+  USAGE_FEE_OWNER_INTRO,
+  artistEarningsIntro,
+  formatUsageFeePercent,
+  usageFeePercentNumber,
+} from "@/lib/usage-fee";
+import { pickArtistForUser } from "@/lib/artist-for-user";
+import { loadEarningsPeriods } from "@/lib/earnings";
 import { APPOINTMENT_STATUSES } from "@/lib/constants";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard, RatioBar } from "@/components/metric-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/field";
+import { StaffEarningsEmpty, UsageFeeMoneySection } from "@/components/usage-fee-money";
 
 export const metadata: Metadata = { title: "Analytics" };
 
@@ -20,15 +29,42 @@ function rateLabel(part: number, total: number) {
 }
 
 export default async function AnalyticsPage() {
-  const { shop } = await requireShop();
-  const stats = await shopAnalytics(shop.id);
+  const { shop, session } = await requireShop();
+  const isStaff = session.role === "staff";
+  const usageFeePercent = usageFeePercentNumber(shop.usageFeePercent);
+  const [stats, roster] = await Promise.all([
+    shopAnalytics(shop.id),
+    isStaff
+      ? prisma.artist.findMany({
+          where: { shopId: shop.id },
+          select: { id: true, name: true, userId: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const linkedArtist = isStaff ? pickArtistForUser(roster, session) : null;
+  const earnings =
+    isStaff && !linkedArtist
+      ? null
+      : await loadEarningsPeriods({
+          shopId: shop.id,
+          artistId: linkedArtist?.id,
+          timeZone: shop.timezone,
+          usageFeePercent,
+        });
+  const artistRows = isStaff
+    ? stats.artistRows.filter((row) => row.id === linkedArtist?.id)
+    : stats.artistRows;
   const serviceMax = Math.max(1, ...stats.topServices.map((row) => row.count));
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Analytics"
-        description={`${shop.name} only. Numbers never include another parlor. Collected is succeeded Checkout. Shop usage fee is this parlor’s ${formatUsageFeePercent(stats.usageFeePercent)} cut of that collected amount (space and products — not Inkdesk billing). Artist share is what remains. Estimated is the deposit book on that artist’s appointments, with the same split.`}
+        description={
+          isStaff
+            ? `${shop.name} only. Money below is your gross, the parlor usage fee taken from it, and your net. That fee is for space and products — not Inkdesk billing.`
+            : `${shop.name} only. Numbers never include another parlor. Client payments are the gross. The parlor usage fee comes out of artist earnings for space and products — not Inkdesk billing. Estimated is the deposit book on that artist’s appointments, with the same split.`
+        }
         actions={
           <Button asChild variant="outline">
             <Link href="/dashboard">Dashboard</Link>
@@ -36,34 +72,32 @@ export default async function AnalyticsPage() {
         }
       />
 
+      {isStaff && !linkedArtist ? <StaffEarningsEmpty percent={usageFeePercent} /> : null}
+      {earnings ? (
+        <UsageFeeMoneySection
+          title={isStaff ? "Your earnings" : "Parlor money"}
+          intro={
+            isStaff && linkedArtist
+              ? artistEarningsIntro(linkedArtist.name, usageFeePercent)
+              : USAGE_FEE_OWNER_INTRO
+          }
+          percent={usageFeePercent}
+          periods={earnings}
+          columns={
+            isStaff
+              ? { gross: "Your gross", fee: "Usage fee taken", net: "Net to you" }
+              : { gross: "Client payments", fee: "Usage fees from artists", net: "Net to artists" }
+          }
+        />
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={CreditCard}
-          label="Collected"
-          value={formatMoney(stats.revenueAllCents)}
-          hint={`${stats.revenueAllCount} succeeded all time · ${formatMoney(stats.revenue7Cents)} last 7d · ${formatMoney(stats.revenue30Cents)} last 30d`}
-        />
-        <MetricCard
-          icon={Store}
-          label="Shop usage fee"
-          value={formatMoney(stats.shopTakeAllCents)}
-          hint={`${formatUsageFeePercent(stats.usageFeePercent)} parlor cut of collected · ${formatMoney(stats.shopTake30Cents)} last 30d`}
-        />
-        <MetricCard
-          icon={Wallet}
-          label="Artist share"
-          value={formatMoney(stats.artistShareAllCents)}
-          hint={`Collected minus the parlor usage fee · ${formatMoney(stats.artistShare30Cents)} last 30d`}
-        />
         <MetricCard
           icon={CreditCard}
           label="Unpaid deposits"
           value={formatMoney(stats.unpaidDepositCents)}
           hint={`${stats.unpaidDepositCount} open on scheduled or completed chairs`}
         />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Percent}
           label="Deposit collection"
@@ -121,15 +155,24 @@ export default async function AnalyticsPage() {
             <div>
               <CardTitle>Per artist</CardTitle>
               <CardDescription>
-                Collected = succeeded payments on that artist’s appointments. Shop usage fee is this parlor’s{" "}
-                {formatUsageFeePercent(stats.usageFeePercent)} cut of collected. Artist share is the remainder.
-                Estimated = deposit amounts on those bookings (same split; not remaining balance).
+                Gross = succeeded payments on that artist’s appointments. Usage fee is taken out of that gross for
+                parlor space and products ({formatUsageFeePercent(usageFeePercent)}) — not Inkdesk billing. Net is what
+                remains for the artist. Estimated = deposit amounts on those bookings (same split; not remaining
+                balance).
+                {isStaff ? " Staff see only their own row." : ""}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
-            {stats.artistRows.length === 0 ? (
-              <EmptyState title="No artists" body="Add an artist on the roster to attribute chairs." />
+            {artistRows.length === 0 ? (
+              <EmptyState
+                title={isStaff ? "No earnings row" : "No artists"}
+                body={
+                  isStaff
+                    ? "This login is not tied to a roster artist yet."
+                    : "Add an artist on the roster to attribute chairs."
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[40rem] text-left text-sm">
@@ -139,13 +182,13 @@ export default async function AnalyticsPage() {
                       <th className="py-2 pr-3 font-medium">Bookings</th>
                       <th className="py-2 pr-3 font-medium">Completed</th>
                       <th className="py-2 pr-3 font-medium">Estimated</th>
-                      <th className="py-2 pr-3 font-medium">Collected</th>
-                      <th className="py-2 pr-3 font-medium">Shop usage fee</th>
-                      <th className="py-2 font-medium">Artist share</th>
+                      <th className="py-2 pr-3 font-medium">Gross</th>
+                      <th className="py-2 pr-3 font-medium">Usage fee taken</th>
+                      <th className="py-2 font-medium">Net to artist</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.artistRows.map((row) => (
+                    {artistRows.map((row) => (
                       <tr key={row.id} className="border-b border-line last:border-0">
                         <td className="py-3 pr-3">
                           <p className="font-medium text-ink">{row.name}</p>

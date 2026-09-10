@@ -79,7 +79,7 @@ export default async function AdminSettingsPage({
           <CardHeader>
             <CardTitle>Usage fee</CardTitle>
             <CardDescription>
-              The parlor’s cut of artist usage of space and products. Not Inkdesk billing, not a Stripe Connect fee.
+              The parlor’s cut of artist earnings for space and products. Taken out of the artist, not added on the client. Not Inkdesk billing, not a Stripe Connect fee.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">

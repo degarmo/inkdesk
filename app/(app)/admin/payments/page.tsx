@@ -40,7 +40,7 @@ export default async function AdminPaymentsPage() {
     <div className="grid gap-6">
       <PageHeader
         title="Payments"
-        description="Checkout history for this parlor. Each charge used this shop’s Stripe secret key. Shop usage fee is this parlor’s cut of artist usage — not Inkdesk billing."
+        description="Checkout history for this parlor. Each charge used this shop’s Stripe secret key. The usage fee is taken out of the artist’s gross on that charge — not added on the client, and not Inkdesk billing."
       />
 
       {!stripeReady ? (
@@ -88,7 +88,7 @@ export default async function AdminPaymentsPage() {
                     </p>
                     {split ? (
                       <p className="text-sm text-muted">
-                        Shop usage fee {formatMoney(split.shopTakeCents)} · artist share{" "}
+                        Usage fee taken {formatMoney(split.shopTakeCents)} · net to artist{" "}
                         {formatMoney(split.artistShareCents)}
                       </p>
                     ) : null}

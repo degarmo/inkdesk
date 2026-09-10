@@ -74,16 +74,8 @@ export async function createArtist(
     }
 
     try {
-      await prisma.$transaction([
-        prisma.artist.create({
-          data: {
-            shopId: session.shopId,
-            name: parsed.data.name,
-            specialty: parsed.data.specialty,
-            active: parsed.data.active,
-          },
-        }),
-        prisma.user.create({
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
           data: shopUserCreateData({
             shopId: session.shopId,
             name: login.name,
@@ -91,8 +83,17 @@ export async function createArtist(
             passwordHash: await hashShopPassword(login.password),
             role: login.role,
           }),
-        }),
-      ]);
+        });
+        await tx.artist.create({
+          data: {
+            shopId: session.shopId,
+            name: parsed.data.name,
+            specialty: parsed.data.specialty,
+            active: parsed.data.active,
+            userId: user.id,
+          },
+        });
+      });
     } catch (error) {
       if (isUniqueEmailError(error)) {
         return { error: EMAIL_TAKEN_MESSAGE };
@@ -155,16 +156,8 @@ export async function updateArtist(
     }
 
     try {
-      await prisma.$transaction([
-        prisma.artist.update({
-          where: { id: existing.id },
-          data: {
-            name: parsed.data.name,
-            specialty: parsed.data.specialty,
-            active: parsed.data.active,
-          },
-        }),
-        prisma.user.create({
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
           data: shopUserCreateData({
             shopId: session.shopId,
             name: login.name,
@@ -172,8 +165,17 @@ export async function updateArtist(
             passwordHash: await hashShopPassword(login.password),
             role: login.role,
           }),
-        }),
-      ]);
+        });
+        await tx.artist.update({
+          where: { id: existing.id },
+          data: {
+            name: parsed.data.name,
+            specialty: parsed.data.specialty,
+            active: parsed.data.active,
+            userId: existing.userId ?? user.id,
+          },
+        });
+      });
     } catch (error) {
       if (isUniqueEmailError(error)) {
         return { error: EMAIL_TAKEN_MESSAGE };

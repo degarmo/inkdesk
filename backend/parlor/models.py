@@ -7,7 +7,8 @@ Prisma remains the source of truth for parlor tables. Those models are
 ``db_column`` names that match ``prisma/schema.prisma`` and
 ``prisma/migrations/20260909200000_postgres_init`` +
 ``20260909210000_shop_onboarding`` +
-``20260910021500_shop_usage_fee``.
+``20260910021500_shop_usage_fee`` +
+``20260910024500_artist_user``.
 
 Django ``migrate`` does **not** create or alter those tables. It only
 creates Django system tables and ``django_shop_auth_token`` in the
@@ -124,6 +125,14 @@ class Artist(UnmanagedPrismaModel):
     name = models.TextField()
     specialty = models.TextField(default="", blank=True)
     active = models.BooleanField(default=True)
+    user = models.OneToOneField(
+        ShopUser,
+        models.SET_NULL,
+        db_column="userId",
+        related_name="artist",
+        blank=True,
+        null=True,
+    )
     created_at = models.DateTimeField(db_column="createdAt")
     updated_at = models.DateTimeField(db_column="updatedAt")
 

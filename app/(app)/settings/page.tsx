@@ -25,7 +25,7 @@ export default async function SettingsPage({
     <div className="grid gap-6">
       <PageHeader
         title="Settings"
-        description="Shop identity, hours, and the parlor usage fee applied to artist vs shop money."
+        description="Shop identity, hours, and the parlor usage fee taken from artist earnings."
       />
 
       {canSetup ? (
@@ -73,7 +73,7 @@ export default async function SettingsPage({
         <CardHeader>
           <CardTitle>Usage fee</CardTitle>
           <CardDescription>
-            The parlor’s cut of artist usage of space and products — not Inkdesk billing.
+            The parlor’s cut of artist earnings for space and products — taken out of the artist, not added on the client. Not Inkdesk billing.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">

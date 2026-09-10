@@ -45,6 +45,7 @@ model User {
   shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   uploadedImages ClientImage[]
+  artist       Artist?
 
   @@index([shopId])
 }
@@ -66,6 +67,8 @@ model Artist {
   name         String
   specialty    String        @default("")
   active       Boolean       @default(true)
+  userId       String?       @unique
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]

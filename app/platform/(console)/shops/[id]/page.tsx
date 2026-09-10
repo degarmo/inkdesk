@@ -87,8 +87,8 @@ export default async function PlatformShopDetailPage({
             <span className="text-ink">Hours:</span> {shop.hoursOpen} – {shop.hoursClose}
           </p>
           <p>
-            <span className="text-ink">Parlor usage fee:</span> {formatUsageFeePercent(usageFeePercent)} of
-            artist usage of space and products (not an Inkdesk platform fee)
+            <span className="text-ink">Parlor usage fee:</span> {formatUsageFeePercent(usageFeePercent)} taken from
+            artist earnings for space and products (not an Inkdesk platform fee)
           </p>
           <p>
             <span className="text-ink">Succeeded payments (30d):</span>{" "}

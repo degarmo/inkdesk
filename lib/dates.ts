@@ -1,4 +1,4 @@
-import { addDays, format, parseISO, startOfDay } from "date-fns";
+import { addDays, format, parseISO, startOfDay, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 
 export function shopNow(timeZone: string) {
@@ -46,6 +46,33 @@ export function addDayKey(dayKey: string, amount: number) {
 
 export function timeValueInZone(date: Date, timeZone: string) {
   return formatInTimeZone(date, timeZone, "HH:mm");
+}
+
+export type CalendarPeriodKey = "day" | "week" | "month" | "year";
+
+export type CalendarPeriod = {
+  key: CalendarPeriodKey;
+  label: string;
+  start: Date;
+  end: Date;
+};
+
+/** Shop-local today, this week (Sunday–Saturday), this month, and this year, all ending now. */
+export function calendarPeriodBounds(timeZone: string, now = new Date()): Record<CalendarPeriodKey, CalendarPeriod> {
+  const todayKey = formatInTimeZone(now, timeZone, "yyyy-MM-dd");
+  const zoned = toZonedTime(now, timeZone);
+  const end = dayBounds(todayKey, timeZone).end;
+
+  const weekStartKey = format(startOfWeek(zoned, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const monthStartKey = format(startOfMonth(zoned), "yyyy-MM-dd");
+  const yearStartKey = format(startOfYear(zoned), "yyyy-MM-dd");
+
+  return {
+    day: { key: "day", label: "Today", start: dayBounds(todayKey, timeZone).start, end },
+    week: { key: "week", label: "This week", start: dayBounds(weekStartKey, timeZone).start, end },
+    month: { key: "month", label: "This month", start: dayBounds(monthStartKey, timeZone).start, end },
+    year: { key: "year", label: "This year", start: dayBounds(yearStartKey, timeZone).start, end },
+  };
 }
 
 /** Group already-ordered items by shop-local calendar day, preserving startAt order. */

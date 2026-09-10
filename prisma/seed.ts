@@ -109,7 +109,7 @@ async function main() {
     },
   });
 
-  await prisma.user.create({
+  const diegoUser = await prisma.user.create({
     data: {
       email: "artist@blackbird.ink",
       name: "Diego Reyes",
@@ -135,6 +135,7 @@ async function main() {
         name: "Diego Reyes",
         specialty: "American traditional",
         active: true,
+        userId: diegoUser.id,
       },
     }),
   ]);

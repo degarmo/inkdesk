@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, CreditCard, Percent, Store, Wallet } from "lucide-react";
+import { CalendarClock, CreditCard, Percent } from "lucide-react";
 import { requireShop, isAdminRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dayBounds, formatShopDate, formatShopTime, shopTodayKey } from "@/lib/dates";
@@ -15,10 +15,17 @@ import { EmptyState } from "@/components/ui/field";
 import { StatusBadge } from "@/components/status-badge";
 import { AppointmentPayActions } from "@/components/appointment-pay-actions";
 import { SetupChecklist } from "@/components/onboarding/setup-checklist";
+import { StaffEarningsEmpty, UsageFeeMoneySection } from "@/components/usage-fee-money";
 import { appointmentHasPrep, prepReadyIds } from "@/lib/images";
 import { buildSetupChecklist } from "@/lib/onboarding";
 import { shopHasOwnStripeKeys, stripeConfigured } from "@/lib/stripe";
-import { formatUsageFeePercent } from "@/lib/usage-fee";
+import { pickArtistForUser } from "@/lib/artist-for-user";
+import { loadEarningsPeriods } from "@/lib/earnings";
+import {
+  USAGE_FEE_OWNER_INTRO,
+  artistEarningsIntro,
+  usageFeePercentNumber,
+} from "@/lib/usage-fee";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -31,8 +38,10 @@ export default async function DashboardPage({
   const { setup } = await searchParams;
   const todayKey = shopTodayKey(shop.timezone);
   const { start, end } = dayBounds(todayKey, shop.timezone);
+  const isStaff = session.role === "staff";
+  const usageFeePercent = usageFeePercentNumber(shop.usageFeePercent);
 
-  const [todays, unpaid, recentClients, stats, artistCount, extraUserCount, clientCount, appointmentCount] =
+  const [todays, unpaid, recentClients, stats, artistCount, extraUserCount, clientCount, appointmentCount, roster] =
     await Promise.all([
     prisma.appointment.findMany({
       where: { shopId: shop.id, startAt: { gte: start, lte: end } },
@@ -60,7 +69,15 @@ export default async function DashboardPage({
     prisma.user.count({ where: { shopId: shop.id, role: { not: "owner" } } }),
     prisma.client.count({ where: { shopId: shop.id } }),
     prisma.appointment.count({ where: { shopId: shop.id } }),
+    isStaff
+      ? prisma.artist.findMany({
+          where: { shopId: shop.id },
+          select: { id: true, name: true, userId: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const linkedArtist = isStaff ? pickArtistForUser(roster, session) : null;
 
   const checklist = buildSetupChecklist({
     artistCount,
@@ -77,11 +94,21 @@ export default async function DashboardPage({
     isAdminRole(session.role) &&
     (setup === "1" || leftoverCore || (leftoverStripe && appointmentCount === 0));
 
-  const prep = await prepReadyIds(
-    shop.id,
-    todays.map((appointment) => appointment.id),
-    todays.map((appointment) => appointment.clientId),
-  );
+  const [prep, earnings] = await Promise.all([
+    prepReadyIds(
+      shop.id,
+      todays.map((appointment) => appointment.id),
+      todays.map((appointment) => appointment.clientId),
+    ),
+    isStaff && !linkedArtist
+      ? Promise.resolve(null)
+      : loadEarningsPeriods({
+          shopId: shop.id,
+          artistId: linkedArtist?.id,
+          timeZone: shop.timezone,
+          usageFeePercent,
+        }),
+  ]);
 
   return (
     <div className="grid gap-8">
@@ -111,34 +138,32 @@ export default async function DashboardPage({
         />
       ) : null}
 
+      {isStaff && !linkedArtist ? <StaffEarningsEmpty percent={usageFeePercent} /> : null}
+      {earnings ? (
+        <UsageFeeMoneySection
+          title={isStaff ? "Your earnings" : "Parlor money"}
+          intro={
+            isStaff && linkedArtist
+              ? artistEarningsIntro(linkedArtist.name, usageFeePercent)
+              : USAGE_FEE_OWNER_INTRO
+          }
+          percent={usageFeePercent}
+          periods={earnings}
+          columns={
+            isStaff
+              ? { gross: "Your gross", fee: "Usage fee taken", net: "Net to you" }
+              : { gross: "Client payments", fee: "Usage fees from artists", net: "Net to artists" }
+          }
+        />
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={CreditCard}
-          label="Collected (30d)"
-          value={formatMoney(stats.revenue30Cents)}
-          hint={`${formatMoney(stats.revenueAllCents)} all time · ${formatMoney(stats.revenue7Cents)} last 7 days`}
-        />
-        <MetricCard
-          icon={Store}
-          label="Shop usage fee (30d)"
-          value={formatMoney(stats.shopTake30Cents)}
-          hint={`${formatUsageFeePercent(stats.usageFeePercent)} parlor cut of collected · ${formatMoney(stats.shopTakeAllCents)} all time`}
-        />
-        <MetricCard
-          icon={Wallet}
-          label="Artist share (30d)"
-          value={formatMoney(stats.artistShare30Cents)}
-          hint={`Collected minus the parlor usage fee · ${formatMoney(stats.artistShareAllCents)} all time`}
-        />
         <MetricCard
           icon={CreditCard}
           label="Unpaid deposits"
           value={formatMoney(stats.unpaidDepositCents)}
           hint={`${stats.unpaidDepositCount} open`}
         />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           icon={Percent}
           label="Deposit collection"

@@ -66,8 +66,7 @@ export function UsageFeeForm({
         </div>
       </Field>
       <p id="usage-fee-help" className="text-sm leading-6 text-muted">
-        {USAGE_FEE_HELP} Applied to succeeded checkout amounts when we split shop vs artist money.
-        Range is 0 to 100, with one decimal place if you need it.
+        {USAGE_FEE_HELP} Range is 0 to 100, with one decimal place if you need it.
       </p>
       <div>
         <Button type="submit" disabled={pending} aria-busy={pending}>
