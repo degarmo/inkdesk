@@ -1,5 +1,7 @@
-import { addDays, format, parseISO, startOfDay } from "date-fns";
+import { addDays, format, parseISO, startOfDay, startOfMonth, startOfWeek, startOfYear } from "date-fns";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
+
+export type CalendarPeriod = "day" | "week" | "month" | "year";
 
 export function shopNow(timeZone: string) {
   return toZonedTime(new Date(), timeZone);
@@ -46,6 +48,24 @@ export function addDayKey(dayKey: string, amount: number) {
 
 export function timeValueInZone(date: Date, timeZone: string) {
   return formatInTimeZone(date, timeZone, "HH:mm");
+}
+
+/**
+ * Inclusive starts for shop-local calendar windows (Sunday-start week).
+ * Payments with createdAt >= start count in that window through now.
+ */
+export function calendarPeriodStarts(now: Date, timeZone: string) {
+  const zoned = toZonedTime(now, timeZone);
+  const dayKey = format(zoned, "yyyy-MM-dd");
+  const weekKey = format(startOfWeek(zoned, { weekStartsOn: 0 }), "yyyy-MM-dd");
+  const monthKey = format(startOfMonth(zoned), "yyyy-MM-dd");
+  const yearKey = format(startOfYear(zoned), "yyyy-MM-dd");
+  return {
+    day: fromZonedTime(`${dayKey}T00:00:00`, timeZone),
+    week: fromZonedTime(`${weekKey}T00:00:00`, timeZone),
+    month: fromZonedTime(`${monthKey}T00:00:00`, timeZone),
+    year: fromZonedTime(`${yearKey}T00:00:00`, timeZone),
+  };
 }
 
 /** Group already-ordered items by shop-local calendar day, preserving startAt order. */

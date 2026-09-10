@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { ListChecks } from "lucide-react";
+import { requireAdmin } from "@/lib/auth";
 import { reopenOnboarding } from "@/actions/onboarding";
-import { requireShop, isAdminRole } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/forms/settings-form";
 import { FlashNotice } from "@/components/flash-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListChecks } from "lucide-react";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -15,39 +15,36 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ saved?: string }>;
 }) {
-  const { shop, session } = await requireShop();
+  const { shop } = await requireAdmin();
   const { saved } = await searchParams;
-  const canSetup = isAdminRole(session.role);
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="Settings"
-        description="Shop identity and the clock the calendar uses."
+        description="Shop identity and the clock the calendar uses. Owners and admins only."
       />
 
-      {canSetup ? (
-        <Card className="max-w-2xl">
-          <CardHeader>
-            <div>
-              <CardTitle>Setup guide</CardTitle>
-              <CardDescription>
-                {shop.onboardingCompletedAt
-                  ? "Walk through shop profile, artists, team, payments, and a first client again."
-                  : "This parlor is not marked complete. Finish or skip remaining steps to open the floor."}
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form action={reopenOnboarding}>
-              <Button type="submit" variant="outline">
-                <ListChecks className="h-4 w-4" />
-                Open setup guide
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      ) : null}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <div>
+            <CardTitle>Setup guide</CardTitle>
+            <CardDescription>
+              {shop.onboardingCompletedAt
+                ? "Walk through shop profile, artists, team, payments, and a first client again."
+                : "This parlor is not marked complete. Finish or skip remaining steps to open the floor."}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form action={reopenOnboarding}>
+            <Button type="submit" variant="outline">
+              <ListChecks className="h-4 w-4" />
+              Open setup guide
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="max-w-2xl">
         <CardHeader>

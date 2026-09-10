@@ -53,7 +53,7 @@ class ClientAdmin(ReadOnlyAdmin):
 
 @admin.register(Artist)
 class ArtistAdmin(ReadOnlyAdmin):
-    list_display = ("name", "specialty", "active", "shop")
+    list_display = ("name", "specialty", "active", "shop", "user")
 
 
 @admin.register(Appointment)

@@ -108,7 +108,7 @@ async function main() {
     },
   });
 
-  await prisma.user.create({
+  const diegoUser = await prisma.user.create({
     data: {
       email: "artist@blackbird.ink",
       name: "Diego Reyes",
@@ -126,6 +126,7 @@ async function main() {
         name: "Maya Chen",
         specialty: "Fine line & botanical",
         active: true,
+        userId: mayaUser.id,
       },
     }),
     prisma.artist.create({
@@ -134,6 +135,7 @@ async function main() {
         name: "Diego Reyes",
         specialty: "American traditional",
         active: true,
+        userId: diegoUser.id,
       },
     }),
   ]);
@@ -519,7 +521,7 @@ async function main() {
       onboardingStep: 6,
     },
   });
-  await prisma.user.create({
+  const lenaUser = await prisma.user.create({
     data: {
       email: "owner@harborneedle.ink",
       name: "Lena Park",
@@ -541,7 +543,13 @@ async function main() {
     },
   });
   const lena = await prisma.artist.create({
-    data: { shopId: harbor.id, name: "Lena Park", specialty: "Blackwork & script", active: true },
+    data: {
+      shopId: harbor.id,
+      name: "Lena Park",
+      specialty: "Blackwork & script",
+      active: true,
+      userId: lenaUser.id,
+    },
   });
   const [mina, cole, june] = await Promise.all([
     prisma.client.create({
@@ -658,7 +666,7 @@ async function main() {
       onboardingStep: 6,
     },
   });
-  await prisma.user.create({
+  const ivyUser = await prisma.user.create({
     data: {
       email: "ivy@ashandivy.ink",
       name: "Ivy Shaw",
@@ -669,7 +677,7 @@ async function main() {
     },
   });
   const ivyArtist = await prisma.artist.create({
-    data: { shopId: quiet.id, name: "Ivy Shaw", specialty: "Floral", active: true },
+    data: { shopId: quiet.id, name: "Ivy Shaw", specialty: "Floral", active: true, userId: ivyUser.id },
   });
   const reed = await prisma.client.create({
     data: {

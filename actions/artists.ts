@@ -50,6 +50,9 @@ export async function createArtist(
   formData: FormData,
 ): Promise<CredentialActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can add artists." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
@@ -62,9 +65,6 @@ export async function createArtist(
 
   const loginAttempt = parseOptionalLogin(formData, parsed.data.name);
   if (loginAttempt.wantsLogin) {
-    if (!isAdminRole(session.role)) {
-      return { error: "Only an owner or admin can create a shop login." };
-    }
     if ("error" in loginAttempt) {
       return { error: loginAttempt.error };
     }
@@ -74,16 +74,8 @@ export async function createArtist(
     }
 
     try {
-      await prisma.$transaction([
-        prisma.artist.create({
-          data: {
-            shopId: session.shopId,
-            name: parsed.data.name,
-            specialty: parsed.data.specialty,
-            active: parsed.data.active,
-          },
-        }),
-        prisma.user.create({
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
           data: shopUserCreateData({
             shopId: session.shopId,
             name: login.name,
@@ -91,8 +83,17 @@ export async function createArtist(
             passwordHash: await hashShopPassword(login.password),
             role: login.role,
           }),
-        }),
-      ]);
+        });
+        await tx.artist.create({
+          data: {
+            shopId: session.shopId,
+            name: parsed.data.name,
+            specialty: parsed.data.specialty,
+            active: parsed.data.active,
+            userId: user.id,
+          },
+        });
+      });
     } catch (error) {
       if (isUniqueEmailError(error)) {
         return { error: EMAIL_TAKEN_MESSAGE };
@@ -124,6 +125,9 @@ export async function updateArtist(
   formData: FormData,
 ): Promise<CredentialActionState> {
   const session = await requireSession();
+  if (!isAdminRole(session.role)) {
+    return { error: "Only owners and admins can change the roster." };
+  }
   const parsed = artistSchema.safeParse({
     name: formData.get("name"),
     specialty: formData.get("specialty") ?? "",
@@ -143,9 +147,6 @@ export async function updateArtist(
 
   const loginAttempt = parseOptionalLogin(formData, parsed.data.name);
   if (loginAttempt.wantsLogin) {
-    if (!isAdminRole(session.role)) {
-      return { error: "Only an owner or admin can create a shop login." };
-    }
     if ("error" in loginAttempt) {
       return { error: loginAttempt.error };
     }
@@ -155,16 +156,8 @@ export async function updateArtist(
     }
 
     try {
-      await prisma.$transaction([
-        prisma.artist.update({
-          where: { id: existing.id },
-          data: {
-            name: parsed.data.name,
-            specialty: parsed.data.specialty,
-            active: parsed.data.active,
-          },
-        }),
-        prisma.user.create({
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
           data: shopUserCreateData({
             shopId: session.shopId,
             name: login.name,
@@ -172,8 +165,17 @@ export async function updateArtist(
             passwordHash: await hashShopPassword(login.password),
             role: login.role,
           }),
-        }),
-      ]);
+        });
+        await tx.artist.update({
+          where: { id: existing.id },
+          data: {
+            name: parsed.data.name,
+            specialty: parsed.data.specialty,
+            active: parsed.data.active,
+            userId: existing.userId ?? user.id,
+          },
+        });
+      });
     } catch (error) {
       if (isUniqueEmailError(error)) {
         return { error: EMAIL_TAKEN_MESSAGE };

@@ -97,7 +97,7 @@ export function AppointmentPayActions({
             <Link href="/admin/settings">{STRIPE_NOT_CONFIGURED}</Link>
           </Button>
         ) : (
-          <p className="text-xs text-muted">{STRIPE_NOT_CONFIGURED}</p>
+          <p className="text-xs text-muted">Card checkout is off until an owner connects Stripe.</p>
         )}
         {needsDeposit ? <DepositButton appointmentId={appointmentId} /> : null}
       </div>

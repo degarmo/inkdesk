@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, CreditCard, Percent, Users } from "lucide-react";
-import { requireShop } from "@/lib/auth";
-import { shopAnalytics } from "@/lib/shop-metrics";
+import { isAdminRole, requireShop } from "@/lib/auth";
+import { shopAnalytics, artistEarningsWindows, EMPTY_EARNINGS } from "@/lib/shop-metrics";
+import { findStaffArtist } from "@/lib/staff-artist";
+import { artistMatchHint } from "@/lib/artist-match";
 import { formatMoney, serviceLabel } from "@/lib/utils";
 import { APPOINTMENT_STATUSES } from "@/lib/constants";
 import { PageHeader } from "@/components/page-header";
 import { MetricCard, RatioBar } from "@/components/metric-card";
+import { EarningsWindowCards } from "@/components/earnings-window-cards";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/field";
@@ -19,7 +22,37 @@ function rateLabel(part: number, total: number) {
 }
 
 export default async function AnalyticsPage() {
-  const { shop } = await requireShop();
+  const { shop, session } = await requireShop();
+  if (!isAdminRole(session.role)) {
+    const match = await findStaffArtist(shop.id, session);
+    const windows = match.artist
+      ? await artistEarningsWindows(shop.id, match.artist.id, shop.timezone, shop)
+      : EMPTY_EARNINGS;
+
+    return (
+      <div className="grid gap-6">
+        <PageHeader
+          title="Your earnings"
+          description={`${shop.name} · day / week / month / year. Gross → parlor usage fee → your net. Not shop GMV.`}
+          actions={
+            <Button asChild variant="outline">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+          }
+        />
+        <p className="text-sm text-muted">{artistMatchHint(match.via, match.artist?.name ?? null)}</p>
+        {match.artist ? (
+          <EarningsWindowCards windows={windows} />
+        ) : (
+          <EmptyState
+            title="No chair linked to this login"
+            body="Staff money is succeeded Checkout on appointments for one roster artist in this shop. We use the linked login when it is set, otherwise a unique name match. Duplicate names are not attributed."
+          />
+        )}
+      </div>
+    );
+  }
+
   const stats = await shopAnalytics(shop.id);
   const serviceMax = Math.max(1, ...stats.topServices.map((row) => row.count));
 

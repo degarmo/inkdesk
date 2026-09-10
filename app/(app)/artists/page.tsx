@@ -17,14 +17,17 @@ export default async function ArtistsPage({
 }) {
   const { shop, session } = await requireShop();
   const { saved } = await searchParams;
-  const canCreateLogin = isAdminRole(session.role);
+  const canManage = isAdminRole(session.role);
   const [artists, users] = await Promise.all([
     prisma.artist.findMany({
       where: { shopId: shop.id },
-      include: { _count: { select: { appointments: true } } },
+      include: {
+        _count: { select: { appointments: true } },
+        user: { select: { email: true, role: true, name: true } },
+      },
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
-    canCreateLogin
+    canManage
       ? prisma.user.findMany({
           where: { shopId: shop.id },
           select: { name: true, email: true, role: true },
@@ -38,40 +41,46 @@ export default async function ArtistsPage({
       <PageHeader
         title="Artists"
         description={
-          canCreateLogin
+          canManage
             ? "Who is on the floor, what they do, and whether they are taking work. You can also create a shop login here so the artist can sign in at /login."
-            : "Who is on the floor, what they do, and whether they are taking work."
+            : "Who is on the floor. Owners and admins add names to the roster."
         }
       />
 
-      <FlashNotice saved={saved} message="Artist roster saved." />
+      {canManage ? <FlashNotice saved={saved} message="Artist roster saved." /> : null}
 
-      <Card className="max-w-3xl">
-        <CardHeader>
-          <div>
-            <CardTitle>Add to the roster</CardTitle>
-            <CardDescription className="mt-1">
-              {canCreateLogin
-                ? "Roster name is for the calendar. Login email is the account they type at /login."
-                : "Add the people who hold the machines so you can put names on the calendar."}
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ArtistForm canCreateLogin={canCreateLogin} />
-        </CardContent>
-      </Card>
+      {canManage ? (
+        <Card className="max-w-3xl">
+          <CardHeader>
+            <div>
+              <CardTitle>Add to the roster</CardTitle>
+              <CardDescription className="mt-1">
+                Roster name is for the calendar. Login email is the account they type at /login.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ArtistForm canCreateLogin />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {artists.length === 0 ? (
         <EmptyState
           title="No artists yet"
-          body="Add the people who hold the machines so you can put names on the calendar."
+          body={
+            canManage
+              ? "Add the people who hold the machines so you can put names on the calendar."
+              : "The roster is empty. Ask an owner or admin to add chairs."
+          }
         />
       ) : (
         <div className="grid gap-4">
           {artists.map((artist) => {
             const matchingLogins = users.filter(
-              (user) => user.name.trim().toLowerCase() === artist.name.trim().toLowerCase(),
+              (user) =>
+                user.email === artist.user?.email ||
+                user.name.trim().toLowerCase() === artist.name.trim().toLowerCase(),
             );
             return (
               <Card key={artist.id}>
@@ -86,21 +95,23 @@ export default async function ArtistsPage({
                     {artist.active ? "Active" : "Inactive"}
                   </Badge>
                 </CardHeader>
-                <CardContent>
-                  <ArtistForm
-                    artistId={artist.id}
-                    canCreateLogin={canCreateLogin}
-                    matchingLogins={matchingLogins.map((user) => ({
-                      email: user.email,
-                      role: user.role,
-                    }))}
-                    defaultValues={{
-                      name: artist.name,
-                      specialty: artist.specialty,
-                      active: artist.active,
-                    }}
-                  />
-                </CardContent>
+                {canManage ? (
+                  <CardContent>
+                    <ArtistForm
+                      artistId={artist.id}
+                      canCreateLogin
+                      matchingLogins={matchingLogins.map((user) => ({
+                        email: user.email,
+                        role: user.role,
+                      }))}
+                      defaultValues={{
+                        name: artist.name,
+                        specialty: artist.specialty,
+                        active: artist.active,
+                      }}
+                    />
+                  </CardContent>
+                ) : null}
               </Card>
             );
           })}
