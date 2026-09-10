@@ -111,3 +111,13 @@ export type ActionState = {
   error?: string;
   success?: string;
 } | null;
+
+/** Returned when a shop login is created on-screen (no invite email). */
+export type CredentialActionState = {
+  error?: string;
+  success?: string;
+  email?: string;
+  password?: string;
+  name?: string;
+  role?: string;
+} | null;

@@ -1,14 +1,14 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-import { hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAdminRole, requireAdmin, requireShop } from "@/lib/auth";
 import { replayOrCreate } from "@/lib/idempotency";
 import { clampOnboardingStep } from "@/lib/onboarding";
+import { generateTempPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/secrets";
+import { createShopUserRecord } from "@/lib/shop-users";
 import { stringifyTags } from "@/lib/utils";
 import {
   artistSchema,
@@ -17,16 +17,10 @@ import {
   shopUserSchema,
   stripeSettingsSchema,
   type ActionState,
+  type CredentialActionState,
 } from "@/lib/validations";
 
-export type InviteActionState = {
-  error?: string;
-  success?: string;
-  email?: string;
-  password?: string;
-  name?: string;
-  role?: string;
-} | null;
+export type InviteActionState = CredentialActionState;
 
 function revalidateOnboarding() {
   revalidatePath("/onboarding");
@@ -51,12 +45,6 @@ async function setStep(shopId: string, step: number) {
     where: { id: shopId },
     data: { onboardingStep: clampOnboardingStep(step) },
   });
-}
-
-function generateTempPassword() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-  const bytes = randomBytes(12);
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
 function tagsFromForm(formData: FormData) {
@@ -165,29 +153,23 @@ export async function inviteOnboardingUser(
     return { error: "Invite staff or admin here. Owner stays the account that signed up." };
   }
 
-  const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  const platformExisting = await prisma.platformUser.findUnique({ where: { email } });
-  if (existing || platformExisting) {
-    return { error: "An account with that email already exists." };
+  const created = await createShopUserRecord({
+    shopId: session.shopId,
+    name: parsed.data.name,
+    email: parsed.data.email,
+    password: parsed.data.password,
+    role: parsed.data.role,
+  });
+  if ("error" in created) {
+    return { error: created.error };
   }
 
-  await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email,
-      passwordHash: await hash(parsed.data.password, 12),
-      role: parsed.data.role,
-      active: true,
-      shopId: session.shopId,
-    },
-  });
   await setStep(session.shopId, 3);
   revalidateOnboarding();
   return {
     success:
       "Login created. Invite email is not sent — email delivery is not wired yet. Copy these credentials and share them yourself.",
-    email,
+    email: created.email,
     password: parsed.data.password,
     name: parsed.data.name,
     role: parsed.data.role,

@@ -69,7 +69,7 @@ export default async function AdminUsersPage({
         <Card>
           <CardHeader>
             <CardTitle>Add a login</CardTitle>
-            <CardDescription>They sign in with this email and the password you set.</CardDescription>
+            <CardDescription>They sign in with this email and the password you set. Artists can also get a login from Artists → Add to the roster.</CardDescription>
           </CardHeader>
           <CardContent>
             <CreateShopUserForm />
