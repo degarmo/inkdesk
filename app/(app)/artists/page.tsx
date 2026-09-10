@@ -37,7 +37,11 @@ export default async function ArtistsPage({
     <div className="grid gap-6">
       <PageHeader
         title="Artists"
-        description="Who is on the floor, what they do, and whether they are taking work. Owner and admin can also create a shop login here so the artist can sign in at /login."
+        description={
+          canCreateLogin
+            ? "Who is on the floor, what they do, and whether they are taking work. You can also create a shop login here so the artist can sign in at /login."
+            : "Who is on the floor, what they do, and whether they are taking work."
+        }
       />
 
       <FlashNotice saved={saved} message="Artist roster saved." />
@@ -47,7 +51,9 @@ export default async function ArtistsPage({
           <div>
             <CardTitle>Add to the roster</CardTitle>
             <CardDescription className="mt-1">
-              Roster name is for the calendar. Login email is the account they type at /login.
+              {canCreateLogin
+                ? "Roster name is for the calendar. Login email is the account they type at /login."
+                : "Add the people who hold the machines so you can put names on the calendar."}
             </CardDescription>
           </div>
         </CardHeader>
