@@ -423,6 +423,11 @@ function PaymentsStep({ shop, webhookUrl }: { shop: WizardShop; webhookUrl: stri
         </div>
       </div>
 
+      <p className="rounded-md border border-line bg-paper px-3 py-3 text-sm leading-6 text-muted">
+        Financial information you enter in this app stays in this app. It is not shared
+        outside Inkdesk. Reporting income for taxes is the parlor&apos;s job.
+      </p>
+
       <p className="text-sm text-muted">
         Platform SaaS billing, Stripe Connect, and application fees are{" "}
         <span className="text-ink">not in this release</span>. See the README section
