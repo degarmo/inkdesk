@@ -33,7 +33,7 @@ export default async function NewAppointmentPage({
         description="Put a client on an artist's chair. Deposits are recorded here; cards are not charged."
         actions={
           <Button asChild variant="outline">
-            <Link href="/appointments">Back to calendar</Link>
+            <Link href="/appointments">Back to appointments</Link>
           </Button>
         }
       />
