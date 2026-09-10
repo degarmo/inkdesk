@@ -47,3 +47,18 @@ export function addDayKey(dayKey: string, amount: number) {
 export function timeValueInZone(date: Date, timeZone: string) {
   return formatInTimeZone(date, timeZone, "HH:mm");
 }
+
+/** Group already-ordered items by shop-local calendar day, preserving startAt order. */
+export function groupByShopDay<T extends { startAt: Date }>(items: T[], timeZone: string) {
+  const groups: { dayKey: string; items: T[] }[] = [];
+  for (const item of items) {
+    const dayKey = dayKeyInZone(item.startAt, timeZone);
+    const last = groups[groups.length - 1];
+    if (last && last.dayKey === dayKey) {
+      last.items.push(item);
+    } else {
+      groups.push({ dayKey, items: [item] });
+    }
+  }
+  return groups;
+}
