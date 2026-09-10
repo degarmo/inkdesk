@@ -76,7 +76,7 @@ Optional `.env` keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
 - `Shop.onboardingCompletedAt` is null until an owner/admin finishes or skip-to-end on `/onboarding`. The migration backfills existing shops as already complete so live parlors are not locked into the wizard. `onboardingStep` (1–6) is the resume point.
 - Session notes require at least one of: design notes, placement, or ink/colors.
 - Creates (client, appointment, session note) send an idempotency key so a double-submit does not insert two rows.
-- Images live on local disk under `storage/shops/{shopId}/clients/{clientId}/` (gitignored). Serve them only through authenticated `GET /api/images/[id]`. Soft-deleted rows stay in the database with `deletedAt` set and are hidden from galleries. HEIC is rejected with an error; export JPEG/PNG/WebP instead. Caps: 10 MB per file, about 50 images per client and 20 per booking.
+- Images live on local disk under `storage/shops/{shopId}/clients/{clientId}/` (gitignored). Serve them only through authenticated `GET /api/images/[id]` (add `?download=1` for `Content-Disposition: attachment`). Soft-deleted rows stay in the database with `deletedAt` set and are hidden from galleries. HEIC is rejected with an error; export JPEG/PNG/WebP instead. Caps: 10 MB per file, about 50 images per client and 20 per booking. Appointment uploads store both the disk file and a `ClientImage` row with `appointmentId`, so they show on that booking and the client card. Review (full size) and Download are on each card.
 - Successful form updates `redirect()` so a no-JS POST does not hang.
 
 ## Run locally
@@ -311,7 +311,7 @@ Web instance: **Starter**. Free Render web services cannot attach a disk; do not
 **Not done**
 
 - **No SQLite → Postgres data migration.** Existing parlor rows on a leftover SQLite disk file are not imported.
-- Images are still local files (`STORAGE_ROOT` on the 1 GB web disk), not S3. Without that disk, deploys wipe parlor photos (the database itself is now Render Postgres and survives deploys).
+- Images are still local files (`STORAGE_ROOT` on the 1 GB web disk), not S3. Without that disk — or if `STORAGE_ROOT` is not `/var/data/storage` on the mounted `inkdesk-data` volume — deploys wipe parlor photos even though `ClientImage` rows survive in Postgres. Free Render web services cannot attach a disk. After a deploy, a gallery card that says “Photo file is missing from parlor storage” means the database row is there and the file is not.
 - Django is an API sibling, not a replacement. Next + Prisma still serve the UI and writes. See **Phase 2** below.
 - There is **no shared platform Stripe key**. Each parlor pastes its own keys in Admin → Settings. Platform billing is still later (see **Platform billing — next**).
 - The Blueprint does **not** run `db:seed` on boot. Seed deletes shops and `storage/shops`.

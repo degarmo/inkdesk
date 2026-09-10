@@ -5,7 +5,7 @@ import { hash } from "bcryptjs";
 import { addDays, format, parseISO } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { PrismaClient } from "@prisma/client";
-import { storageRoot } from "../lib/paths";
+import { absoluteStoragePath, storageKeyFor, storageRoot } from "../lib/paths";
 
 const prisma = new PrismaClient();
 const TZ = "America/Los_Angeles";
@@ -391,8 +391,8 @@ async function main() {
     height: number;
   }) {
     const id = crypto.randomUUID();
-    const key = path.join("shops", shop.id, "clients", opts.clientId, `${id}.${opts.ext}`);
-    const abs = path.join(STORAGE_ROOT, key);
+    const key = storageKeyFor(shop.id, opts.clientId, id, opts.ext);
+    const abs = absoluteStoragePath(key);
     await mkdir(path.dirname(abs), { recursive: true });
     await copyFile(path.join(fixtures, opts.file), abs);
     const info = await stat(abs);

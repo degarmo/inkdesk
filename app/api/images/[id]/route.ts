@@ -1,16 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { getApiSession } from "@/lib/auth";
-import { absoluteStoragePath } from "@/lib/images";
+import { absoluteStoragePath } from "@/lib/paths";
+import { imageContentHeaders, imageDownloadFilename, wantsImageDownload } from "@/lib/image-store";
 import { prisma } from "@/lib/prisma";
 import { isBrowserDocumentRequest } from "@/lib/utils";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const download = wantsImageDownload(request);
   const session = await getApiSession();
   if (!session) {
     if (isBrowserDocumentRequest(request)) {
-      const next = `/api/images/${id}`;
+      const next = download ? `/api/images/${id}?download=1` : `/api/images/${id}`;
       return new NextResponse(null, {
         status: 303,
         headers: { Location: `/login?next=${encodeURIComponent(next)}` },
@@ -21,7 +23,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const image = await prisma.clientImage.findFirst({
     where: { id, deletedAt: null },
-    select: { id: true, shopId: true, storageKey: true, mimeType: true, byteSize: true },
+    select: {
+      id: true,
+      shopId: true,
+      storageKey: true,
+      mimeType: true,
+      byteSize: true,
+      caption: true,
+      kind: true,
+    },
   });
   if (!image) {
     return new NextResponse("Not found.", { status: 404 });
@@ -32,16 +42,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const bytes = await readFile(absoluteStoragePath(image.storageKey));
+    const filename = imageDownloadFilename(image);
     return new NextResponse(new Uint8Array(bytes), {
       status: 200,
-      headers: {
-        "Content-Type": image.mimeType,
-        "Content-Length": String(bytes.length),
-        "Cache-Control": "private, max-age=3600",
-        "X-Content-Type-Options": "nosniff",
-      },
+      headers: imageContentHeaders({
+        mimeType: image.mimeType,
+        byteLength: bytes.length,
+        filename,
+        download,
+      }),
     });
   } catch {
-    return new NextResponse("Not found.", { status: 404 });
+    return new NextResponse("Photo file is missing from parlor storage.", { status: 404 });
   }
 }
